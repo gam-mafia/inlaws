@@ -1,6 +1,6 @@
 # GP-1 likelihood and distribution calculations, independent of gam().
 # t = log(phi - 1); t = -Inf denotes the exact Poisson boundary.
-.gp_parameters <- function(t) {
+.gpoisson_parameters <- function(t) {
   lp <- pmax(t, 0) + log1p(exp(-abs(t)))
   c <- exp(-lp / 2)
   h <- stats::plogis(t)
@@ -8,8 +8,8 @@
        cpp = c * (3 * h^2 / 4 - h / 2), h = h, lp = lp)
 }
 
-.gp_logpmf <- function(y, mu, t) {
-  p <- .gp_parameters(t)
+.gpoisson_logpmf <- function(y, mu, t) {
+  p <- .gpoisson_parameters(t)
   if (t == -Inf) return(stats::dpois(y, mu, log = TRUE))
   z <- p$c * mu + p$b * y
   ans <- stats::dpois(y, z, log = TRUE) + log(mu) - p$lp / 2 - log(z)
@@ -19,8 +19,8 @@
 }
 
 # Ordinary analytic derivatives of log p, with respect to mu and t.
-.gp_lld <- function(y, mu, t, level = 2L) {
-  p <- .gp_parameters(t)
+.gpoisson_lld <- function(y, mu, t, level = 2L) {
+  p <- .gpoisson_parameters(t)
   z <- p$c * mu + p$b * y
   u <- p$c / z
   ans <- list(m = 1 / mu + (y - 1) * u - p$c,
@@ -50,17 +50,17 @@
   ans
 }
 
-.gp_saturated <- function(y, t) {
+.gpoisson_saturated <- function(y, t) {
   out <- matrix(0, length(y), 3L)
   pos <- y > 0
   if (any(pos)) {
-    p <- .gp_parameters(t)
+    p <- .gpoisson_parameters(t)
     # Solve a^2 - y*(1-b)*a - b*y = 0; mu = a/(1-b).
     v <- y[pos] * p$c
     a <- (v + sqrt(v^2 + 4 * p$b * y[pos])) / 2
     mu <- a / p$c
-    d <- .gp_lld(y[pos], mu, t)
-    out[pos, 1] <- .gp_logpmf(y[pos], mu, t)
+    d <- .gpoisson_lld(y[pos], mu, t)
+    out[pos, 1] <- .gpoisson_logpmf(y[pos], mu, t)
     out[pos, 2] <- d$t
     # Envelope theorem, including movement of the saturated mean.
     out[pos, 3] <- d$tt - d$mt^2 / d$mm
@@ -68,18 +68,18 @@
   out
 }
 
-.gp_recycle <- function(x, mu) {
-  if (!is.numeric(x) || !is.numeric(mu)) stop("gp distribution arguments must be numeric")
+.gpoisson_recycle <- function(x, mu) {
+  if (!is.numeric(x) || !is.numeric(mu)) stop("gpoisson distribution arguments must be numeric")
   if (!length(x) || !length(mu)) return(list(numeric(), numeric()))
   n <- max(length(x), length(mu))
   if (!all(c(length(x), length(mu)) %in% c(1L, n)))
-    stop("gp distribution arguments must have equal lengths or be scalars")
+    stop("gpoisson distribution arguments must have equal lengths or be scalars")
   if (any(!is.na(mu) & (!is.finite(mu) | mu < 0)))
-    stop("gp distribution means must be finite and nonnegative")
+    stop("gpoisson distribution means must be finite and nonnegative")
   list(rep_len(x, n), rep_len(mu, n))
 }
 
-.gp_logadd <- function(a, b) {
+.gpoisson_logadd <- function(a, b) {
   hi <- pmax(a, b)
   ans <- hi + log1p(exp(pmin(a, b) - hi))
   ans[hi == -Inf] <- -Inf
@@ -88,8 +88,8 @@
 
 # Sum the actual probabilities, never a renormalized finite approximation.
 # The finite CDF needs no tail approximation; quantiles stop at their crossing.
-.gp_probability <- function(x, mu, t, quantile = FALSE) {
-  v <- .gp_recycle(x, mu); x <- v[[1]]; mu <- v[[2]]
+.gpoisson_probability <- function(x, mu, t, quantile = FALSE) {
+  v <- .gpoisson_recycle(x, mu); x <- v[[1]]; mu <- v[[2]]
   if (quantile && any(!is.na(x) & (x < 0 | x > 1)))
     warning("NaNs produced")
   if (t == -Inf) {
@@ -108,33 +108,33 @@
       if (xi < 0) return(-Inf)
       if (mi == 0 || xi == Inf) return(0)
       last <- floor(xi)
-      if (last >= 1000000L) stop("gp CDF summation exceeds one million terms")
+      if (last >= 1000000L) stop("gpoisson CDF summation exceeds one million terms")
     }
     total <- -Inf
     for (first in seq.int(0, last, by = 512L)) {
       j <- seq.int(first, min(last, first + 511L))
-      lp <- .gp_logpmf(j, rep(mi, length(j)), t)
+      lp <- .gpoisson_logpmf(j, rep(mi, length(j)), t)
       peak <- max(lp)
       cumulative <- if (peak == -Inf) rep(-Inf, length(j)) else
         peak + log(cumsum(exp(lp - peak)))
-      cumulative <- .gp_logadd(total, cumulative)
+      cumulative <- .gpoisson_logadd(total, cumulative)
       if (quantile && any(cumulative >= target))
         return(j[which(cumulative >= target)[1L]])
       total <- cumulative[length(j)]
     }
-    if (quantile) stop("gp quantile summation failed after one million terms")
+    if (quantile) stop("gpoisson quantile summation failed after one million terms")
     if (!is.finite(total) || total > 1e-10)
-      stop("gp CDF summation lost numerical accuracy")
+      stop("gpoisson CDF summation lost numerical accuracy")
     min(0, total)
   }, numeric(1))
 }
 
 # Poisson immigration followed by Poisson offspring, summed to extinction.
-.gp_random <- function(mu, t) {
-  mu <- .gp_recycle(mu, mu)[[2]]
+.gpoisson_random <- function(mu, t) {
+  mu <- .gpoisson_recycle(mu, mu)[[2]]
   if (t == -Inf) return(stats::rpois(length(mu), mu))
-  p <- .gp_parameters(t)
-  if (p$b >= 1) stop("gp dispersion exceeds simulation precision")
+  p <- .gpoisson_parameters(t)
+  if (p$b >= 1) stop("gpoisson dispersion exceeds simulation precision")
   total <- generation <- stats::rpois(length(mu), mu * p$c)
   for (i in seq_len(1000000L)) {
     active <- which(!is.na(generation) & generation > 0)
@@ -142,7 +142,7 @@
     generation[active] <- stats::rpois(length(active), p$b * generation[active])
     total[active] <- total[active] + generation[active]
     if (any(!is.finite(total[active]) | total[active] > 2^53))
-      stop("gp simulation exceeds exact integer range")
+      stop("gpoisson simulation exceeds exact integer range")
   }
-  stop("gp simulation failed to reach extinction after one million generations")
+  stop("gpoisson simulation failed to reach extinction after one million generations")
 }

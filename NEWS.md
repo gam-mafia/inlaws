@@ -1,5 +1,8 @@
 # inlaws 0.0.0.9000
 
+* Renamed `gp()` to `gpoisson()` to distinguish it from `gpd()`. Update
+  existing calls to the new name; the old constructor is no longer exported.
+
 * Renamed `ocat_link()` to `cumulative_link()`. Update existing calls to the
   new name; the old constructor is no longer exported.
 

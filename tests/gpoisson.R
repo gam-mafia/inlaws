@@ -8,22 +8,22 @@ error <- function(expr, pattern) {
   e <- tryCatch(expr, error = identity)
   stopifnot(inherits(e, "error"), grepl(pattern, conditionMessage(e), fixed = TRUE))
 }
-ll <- getFromNamespace(".gp_logpmf", "inlaws")
-saturated <- getFromNamespace(".gp_saturated", "inlaws")
+ll <- getFromNamespace(".gpoisson_logpmf", "inlaws")
+saturated <- getFromNamespace(".gpoisson_saturated", "inlaws")
 
 # Constructor and invalid inputs.
-stopifnot(inherits(gp(), "extended.family"), gp()$n.theta == 1L,
-          gp(2)$n.theta == 0L, length(gp(1)$getTheta()) == 0L)
-near(gp()$getTheta(TRUE), 2)
-near(gp(0)$getTheta(TRUE), 2)
-near(gp(-3)$getTheta(TRUE), 3)
+stopifnot(inherits(gpoisson(), "extended.family"), gpoisson()$n.theta == 1L,
+          gpoisson(2)$n.theta == 0L, length(gpoisson(1)$getTheta()) == 0L)
+near(gpoisson()$getTheta(TRUE), 2)
+near(gpoisson(0)$getTheta(TRUE), 2)
+near(gpoisson(-3)$getTheta(TRUE), 3)
 for (bad in list(NA_real_, Inf, -Inf, .5, -.5, -1, c(1, 2), "2", numeric()))
-  error(gp(bad), "theta must")
-error(gp(link = "identity"), "log link")
+  error(gpoisson(bad), "theta must")
+error(gpoisson(link = "identity"), "log link")
 
 # Independent direct PMF, normalization, and exact GP-1 moments.
 for (phi in c(1, 1 + 1e-7, 2, 10, 50)) {
-  f <- gp(phi)
+  f <- gpoisson(phi)
   for (m in c(.05, 1, 20, 500)) {
     y <- 0:100000
     p <- exp(ll(y, rep(m, length(y)), log(phi - 1)))
@@ -42,7 +42,7 @@ for (phi in c(1, 1 + 1e-7, 2, 10, 50)) {
     near(f$cdf(j, m, logp = TRUE), log(f$cdf(j, m)), 1e-10)
   }
 }
-f <- gp(2)
+f <- gpoisson(2)
 near(f$cdf(c(-Inf, -1, 0, 1, Inf), 0), c(0, 0, 1, 1, 1))
 near(f$qf(c(0, .1, 1), 0), c(0, 0, 0))
 near(f$qf(c(0, 1), 2), c(0, Inf))
@@ -62,7 +62,7 @@ y <- c(0, 1, 2, 7, 40)
 mu <- c(.2, .7, 4, 9, 32)
 w <- c(.5, 2, 1, 0, 1.5)
 for (phi in c(1 + 1e-5, 1.5, 5, 30)) {
-  t <- log(phi - 1); fam <- gp(phi); h <- 1e-5
+  t <- log(phi - 1); fam <- gpoisson(phi); h <- 1e-5
   d <- fam$Dd(y, mu, t, w, 2)
   mp <- fam$Dd(y, mu + h, t, w, 2)
   mm <- fam$Dd(y, mu - h, t, w, 2)
@@ -97,7 +97,7 @@ for (phi in c(1 + 1e-5, 1.5, 5, 30)) {
 # Simulation uses independent branching rather than CDF inversion.
 set.seed(461)
 for (phi in c(1, 1.01, 2, 10)) {
-  z <- gp(phi)$rd(rep(4, 60000))
+  z <- gpoisson(phi)$rd(rep(4, 60000))
   stopifnot(all(z >= 0 & z == floor(z)), abs(mean(z)-4) < .09,
             abs(var(z)/(4*phi)-1) < .06)
 }
@@ -105,11 +105,11 @@ for (phi in c(1, 1.01, 2, 10)) {
 # Fitting and the exact Poisson boundary.
 set.seed(12)
 dat <- data.frame(x = runif(400), exposure = runif(400, .5, 2))
-dat$y <- gp(2)$rd(exp(.4 + sin(6*dat$x)) * dat$exposure)
+dat$y <- gpoisson(2)$rd(exp(.4 + sin(6*dat$x)) * dat$exposure)
 form <- y ~ s(x, k = 6) + offset(log(exposure))
 precise <- gam.control(epsilon = 1e-10, newton = list(conv.tol = 1e-10))
 for (method in c("REML", "ML")) {
-  p <- gam(form, data = dat, family = gp(1), method = method, control = precise)
+  p <- gam(form, data = dat, family = gpoisson(1), method = method, control = precise)
   q <- gam(form, data = dat, family = poisson(), method = method, control = precise)
   near(coef(p), coef(q), 1e-5)
   near(logLik(p), logLik(q), 1e-7)
@@ -117,7 +117,7 @@ for (method in c("REML", "ML")) {
   near(p$null.deviance, q$null.deviance, 1e-6)
   near(p$sp, q$sp, 1e-5)
   near(p$Vp, q$Vp, 1e-5)
-  fit <- gam(form, data = dat, family = gp(), method = method)
+  fit <- gam(form, data = dat, family = gpoisson(), method = method)
   stopifnot(fit$converged, fit$family$getTheta(TRUE) > 1,
             all(is.finite(predict(fit, se.fit = TRUE)$se.fit)), fit$sig2 == 1)
   for (type in c("response", "pearson", "deviance", "working"))
@@ -126,40 +126,40 @@ for (method in c("REML", "ML")) {
 }
 
 # Low-count unpenalized REML also exercises negative observed curvature.
-low <- gam(y ~ x + offset(log(exposure)), data = dat, family = gp(), method = "REML")
+low <- gam(y ~ x + offset(log(exposure)), data = dat, family = gpoisson(), method = "REML")
 stopifnot(low$converged)
 
 # An independent unpenalized likelihood optimizer tests dispersion estimation.
-# Higher counts avoid mgcv's zero-column ML SVD bug (see gp documentation).
+# Higher counts avoid mgcv's zero-column ML SVD bug (see gpoisson documentation).
 set.seed(52)
 dat <- data.frame(x = runif(400), exposure = runif(400, .8, 1.2))
-dat$y <- gp(2)$rd(exp(4 + .4*dat$x) * dat$exposure)
+dat$y <- gpoisson(2)$rd(exp(4 + .4*dat$x) * dat$exposure)
 X <- model.matrix(~x, dat); off <- log(dat$exposure)
 objective <- function(par) -sum(ll(dat$y, exp(drop(X %*% par[1:2])+off), par[3]))
-fit <- gam(y ~ x + offset(log(exposure)), data = dat, family = gp(), method = "ML")
+fit <- gam(y ~ x + offset(log(exposure)), data = dat, family = gpoisson(), method = "ML")
 opt <- optim(c(coef(fit), fit$family$getTheta()), objective, method = "BFGS",
              control = list(reltol = 1e-12))
 near(c(coef(fit), fit$family$getTheta()), opt$par, 1e-4)
 near(-as.numeric(logLik(fit)), opt$value, 1e-8)
 # Fixed dispersion against its own independent optimizer.
-fixed <- gam(y ~ x + offset(log(exposure)), data = dat, family = gp(2), method = "ML")
+fixed <- gam(y ~ x + offset(log(exposure)), data = dat, family = gpoisson(2), method = "ML")
 optf <- optim(coef(fixed), function(b) objective(c(b, 0)), method = "BFGS")
 near(coef(fixed), optf$par, 1e-5)
 
 # Integer weights agree with replication; fractional weights agree with ML.
 dat$w <- rep(0:3, length.out = nrow(dat))
-weighted <- gam(y ~ x, data = dat, weights = w, family = gp(), method = "ML")
-replicated <- gam(y ~ x, data = dat[rep(seq_len(nrow(dat)), dat$w), ], family = gp(), method = "ML")
+weighted <- gam(y ~ x, data = dat, weights = w, family = gpoisson(), method = "ML")
+replicated <- gam(y ~ x, data = dat[rep(seq_len(nrow(dat)), dat$w), ], family = gpoisson(), method = "ML")
 near(coef(weighted), coef(replicated), 1e-5)
 near(weighted$family$getTheta(TRUE), replicated$family$getTheta(TRUE), 1e-5)
 dat$w <- dat$w / 2
-fractional <- gam(y ~ x, data = dat, weights = w, family = gp(), method = "ML")
+fractional <- gam(y ~ x, data = dat, weights = w, family = gpoisson(), method = "ML")
 fw <- function(par) -sum(dat$w * ll(dat$y, exp(drop(X %*% par[1:2])), par[3]))
 optw <- optim(c(coef(fractional), fractional$family$getTheta()), fw, method = "BFGS")
 near(c(coef(fractional), fractional$family$getTheta()), optw$par, 1e-4)
 
 # Reusing a template must not mutate it or a previous fit.
-template <- gp(-3)
+template <- gpoisson(-3)
 f1 <- gam(y ~ x, data = dat, family = template, method = "REML")
 saved <- f1$family$getTheta()
 f2 <- gam(y ~ 1, data = dat, family = template, method = "REML")
@@ -168,15 +168,15 @@ near(f1$family$getTheta(), saved)
 near(f1$family$getTheta(TRUE), 1+exp(saved))
 stopifnot(all(is.finite(f1$family$rd(fitted(f1)))),
           all(is.finite(f1$family$qf(.5, fitted(f1)))))
-nointercept <- gam(y ~ x - 1 + offset(log(exposure)), data = dat, family = gp(2), method = "REML")
+nointercept <- gam(y ~ x - 1 + offset(log(exposure)), data = dat, family = gpoisson(2), method = "REML")
 near(nointercept$null.deviance, sum(nointercept$family$dev.resids(dat$y, dat$exposure, rep(1, nrow(dat)))))
 for (bad in list(c(-1, 2), c(.5, 1), c(Inf, 1)))
-  error(gam(y ~ 1, data = data.frame(y = bad), family = gp(), method = "REML"), "integer responses")
-error(gam(y ~ 1, data = data.frame(y = c(0, 0)), family = gp(), method = "REML"), "positive count")
-error(gam(y ~ x, data = dat, family = gp(), method = "REML", scale = 2), "scale is fixed")
+  error(gam(y ~ 1, data = data.frame(y = bad), family = gpoisson(), method = "REML"), "integer responses")
+error(gam(y ~ 1, data = data.frame(y = c(0, 0)), family = gpoisson(), method = "REML"), "positive count")
+error(gam(y ~ x, data = dat, family = gpoisson(), method = "REML", scale = 2), "scale is fixed")
 # Estimated dispersion can approach the Poisson boundary without switching.
 set.seed(44)
 pd <- data.frame(y = rpois(500, 4))
-edge <- gam(y ~ 1, data = pd, family = gp(), method = "REML")
+edge <- gam(y ~ 1, data = pd, family = gpoisson(), method = "REML")
 stopifnot(edge$converged, is.finite(edge$family$getTheta()), edge$family$getTheta(TRUE) >= 1)
 cat("Generalized Poisson distribution, derivatives and fitting: passed\n")

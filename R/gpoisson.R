@@ -51,22 +51,22 @@
 #' @examples
 #' set.seed(12)
 #' dat <- data.frame(x = runif(200))
-#' dat$y <- gp(theta = 2)$rd(exp(1 + sin(2 * pi * dat$x)))
+#' dat$y <- gpoisson(theta = 2)$rd(exp(1 + sin(2 * pi * dat$x)))
 #' fit <- mgcv::gam(y ~ s(x, k = 6), data = dat,
-#'                  family = gp(), method = "REML")
+#'                  family = gpoisson(), method = "REML")
 #' fit$family$getTheta(TRUE)
 #' predict(fit, type = "response")
-gp <- function(theta = NULL, link = "log") {
-  if (!identical(link, "log")) stop("gp supports only the log link")
+gpoisson <- function(theta = NULL, link = "log") {
+  if (!identical(link, "log")) stop("gpoisson supports only the log link")
   if (!is.null(theta) && (!is.numeric(theta) || length(theta) != 1L ||
       !is.finite(theta) || !(theta == 0 || theta >= 1 || theta < -1)))
     stop("theta must be NULL, zero, at least one, or less than minus one")
   fixed <- !is.null(theta) && theta >= 1
   initial <- if (is.null(theta) || theta == 0) 0 else log(abs(theta) - 1)
-  .gp_family(initial, fixed)
+  .gpoisson_family(initial, fixed)
 }
 
-.gp_family <- function(initial, fixed) {
+.gpoisson_family <- function(initial, fixed) {
   .Theta <- initial
   poisson <- fixed && initial == -Inf
   getTheta <- function(trans = FALSE) {
@@ -84,7 +84,7 @@ gp <- function(theta = NULL, link = "log") {
       ans[active] <- stats::poisson()$dev.resids(y[active], mu[active], wt[active])
     } else if (any(active)) {
       ans[active] <- 2 * wt[active] * pmax(0,
-        .gp_saturated(y[active], theta)[, 1] - .gp_logpmf(y[active], mu[active], theta))
+        .gpoisson_saturated(y[active], theta)[, 1] - .gpoisson_logpmf(y[active], mu[active], theta))
     }
     ans
   }
@@ -97,13 +97,13 @@ gp <- function(theta = NULL, link = "log") {
     ans <- stats::setNames(lapply(fields, function(x) numeric(length(y))), fields)
     if (!any(active)) return(ans)
     ya <- y[active]; ma <- mu[active]; wa <- wt[active]
-    d <- .gp_lld(ya, ma, theta, level)
+    d <- .gpoisson_lld(ya, ma, theta, level)
     map <- c(Dmu = "m", Dmu2 = "mm", Dth = "t", Dmuth = "mt",
              Dmu3 = "mmm", Dmu2th = "mmt", Dmu4 = "mmmm", Dth2 = "tt",
              Dmuth2 = "mtt", Dmu2th2 = "mmtt", Dmu3th = "mmmt")
     for (nm in intersect(names(map), fields)) ans[[nm]][active] <- -2 * wa * d[[map[[nm]]]]
     if (level > 0) {
-      sat <- .gp_saturated(ya, theta)
+      sat <- .gpoisson_saturated(ya, theta)
       ans$Dth[active] <- ans$Dth[active] + 2 * wa * sat[, 2]
       if (level > 1) ans$Dth2[active] <- ans$Dth2[active] + 2 * wa * sat[, 3]
     }
@@ -121,10 +121,10 @@ gp <- function(theta = NULL, link = "log") {
   ls <- function(y, w, theta, scale) {
     if (!length(theta)) theta <- .Theta
     if (length(scale) != 1L || !is.finite(scale) || scale != 1)
-      stop("gp likelihood scale is fixed at one")
+      stop("gpoisson likelihood scale is fixed at one")
     w <- rep_len(w, length(y)); active <- w > 0
     s <- matrix(0, length(y), 3L)
-    if (any(active)) s[active, ] <- .gp_saturated(y[active], theta) * w[active]
+    if (any(active)) s[active, ] <- .gpoisson_saturated(y[active], theta) * w[active]
     if (poisson) return(list(ls = sum(s[, 1]), lsth1 = numeric(0),
       LSTH1 = matrix(0, length(y), 0L), lsth2 = matrix(0, 0L, 0L)))
     list(ls = sum(s[, 1]), lsth1 = sum(s[, 2]),
@@ -133,26 +133,26 @@ gp <- function(theta = NULL, link = "log") {
   aic <- function(y, mu, theta = NULL, wt, dev) {
     if (!length(theta)) theta <- .Theta
     wt <- rep_len(wt, length(y)); active <- wt > 0
-    -2 * sum(wt[active] * .gp_logpmf(y[active], mu[active], theta))
+    -2 * sum(wt[active] * .gpoisson_logpmf(y[active], mu[active], theta))
   }
   variance <- function(mu) mu * getTheta(TRUE)
-  rd <- function(mu, wt = 1, scale = 1) .gp_random(mu, .Theta)
+  rd <- function(mu, wt = 1, scale = 1) .gpoisson_random(mu, .Theta)
   cdf <- function(q, mu, wt = 1, scale = 1, logp = FALSE) {
-    lp <- .gp_probability(q, mu, .Theta)
+    lp <- .gpoisson_probability(q, mu, .Theta)
     if (logp) lp else exp(lp)
   }
-  qf <- function(p, mu, wt = 1, scale = 1) .gp_probability(p, mu, .Theta, TRUE)
+  qf <- function(p, mu, wt = 1, scale = 1) .gpoisson_probability(p, mu, .Theta, TRUE)
   initialize <- expression({
     if (!is.numeric(y) || is.matrix(y) || any(!is.finite(y)) ||
-        any(y < 0 | y != floor(y))) stop("gp requires finite nonnegative integer responses")
+        any(y < 0 | y != floor(y))) stop("gpoisson requires finite nonnegative integer responses")
     if (any(!is.finite(weights)) || any(weights < 0) || !is.finite(sum(weights)))
-      stop("gp requires finite nonnegative weights")
-    if (!any(weights > 0 & y > 0)) stop("gp needs a positive count with positive weight")
+      stop("gpoisson requires finite nonnegative weights")
+    if (!any(weights > 0 & y > 0)) stop("gpoisson needs a positive count with positive weight")
     mustart <- y + (y == 0) / 6
   })
   preinitialize <- function(y, family) {
     # Rebuild closures for each fit; never retain or modify the template.
-    fresh <- .gp_family(initial, fixed)
+    fresh <- .gpoisson_family(initial, fixed)
     list(family = mgcv::fix.family.link(fresh))
   }
   postproc <- function(family, y, prior.weights, fitted, linear.predictors, offset, intercept) {
@@ -164,7 +164,7 @@ gp <- function(theta = NULL, link = "log") {
         opt <- stats::optimize(obj, centre + c(-width, width), tol = 1e-9)
         if (abs(opt$minimum - centre) < .95 * width) break
         width <- width * 2
-        if (width > 128) stop("gp null deviance optimization failed")
+        if (width > 128) stop("gpoisson null deviance optimization failed")
       }
       opt$objective
     }

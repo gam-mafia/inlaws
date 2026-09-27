@@ -29,7 +29,7 @@ parameter selection, not simply maximization of an unpenalized likelihood.
 | `cmp()` | Extended | Yes | ? | ? | ? / ? | ? | ? / ? |
 | `dirichlet()` | General | Yes | No | No | No / No | No | No / No |
 | `dirmult()` | General | Yes | No | No | No / No | No | No / No |
-| `gp()` | Extended | Yes | Yes | ? | ? / ? | ? | ? / ? |
+| `gpoisson()` | Extended | Yes | Yes | ? | ? / ? | ? | ? / ? |
 | `gpd()` | General | Yes | No | No | No / No | No | No / No |
 | `nbls()` | General | Yes | No | No | No / No | No | No / No |
 | `cumulative_link()` | Extended | Yes | Yes | Yes | Yes / Yes | Yes | Yes / Yes |
@@ -62,7 +62,7 @@ does not by itself establish that every fitting route works.
   `bam()` NCV uses the working linear model, so its optimum need not match
   `gam()` NCV.
 - **ML edge cases:** in mgcv 1.9-4, entirely unpenalized `gam(method = "ML")`
-  models can hit a native solver limitation with `gp()` or the cauchit link
+  models can hit a native solver limitation with `gpoisson()` or the cauchit link
   of `cumulative_link()`. Smooth-model ML is supported; see the family help pages
   for alternatives.
 - **Scope:** `cmp()` is a pure-R reference implementation whose large-data
