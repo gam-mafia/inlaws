@@ -76,4 +76,9 @@ prob_lo <- fit$family$cdf(lo, m)
 prob_hi <- fit$family$cdf(hi, m)
 u <- prob_lo + c(.2, .4, .6, .8) * (prob_hi - prob_lo)
 y_draw <- fit$family$qf(u, m)
-stopifnot(all(y_draw >= lo), all(y_draw <= hi), all(is.finite(qnorm(u))))
+# CDF/quantile inversion can round to either side of an exact observation.
+exact <- lo == hi
+stopifnot(all(y_draw[!exact] >= lo[!exact]),
+          all(y_draw[!exact] <= hi[!exact]),
+          all(is.finite(qnorm(u))))
+near(y_draw[exact], lo[exact])
