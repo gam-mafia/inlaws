@@ -1,0 +1,40 @@
+url: https://gam-mafia.github.io/inlaws/
+
+template:
+  bootstrap: 5
+
+home:
+  title: Additional distribution families for mgcv
+
+reference:
+  - title: Count families
+    contents:
+      - betabinomial
+      - cmp
+      - gp
+      - nbls
+      - zinb
+  - title: Censored and extreme-value families
+    contents:
+      - cgamma
+      - clognormal
+      - clognormalls
+      - gpd
+  - title: Ordinal and bounded families
+    contents:
+      - cumulative_link
+      - ordbeta
+      - predict_ordbeta
+  - title: Compositional families
+    contents:
+      - dirichlet
+      - dirmult
+  - title: Package overview
+    contents:
+      - inlaws-package
+
+articles:
+  - title: Using inlaws
+    navbar: ~
+    contents:
+      - family-compatibility

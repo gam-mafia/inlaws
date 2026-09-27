@@ -12,6 +12,7 @@ See each family for its supported fitting methods and parameterization.
 \seealso{
 Useful links:
 \itemize{
+  \item \url{https://gam-mafia.github.io/inlaws/}
   \item \url{https://github.com/gam-mafia/inlaws}
   \item Report bugs at \url{https://github.com/gam-mafia/inlaws/issues}
 }

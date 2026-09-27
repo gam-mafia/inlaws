@@ -4,4 +4,9 @@
 .Rproj.user/
 *.Rcheck/
 *.tar.gz
+docs/
+/pkgdown/Windows/
+/cobertura.xml
+/coverage.csv
+/coverage.rds
 .quarto/

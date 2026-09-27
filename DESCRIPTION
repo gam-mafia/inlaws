@@ -20,7 +20,8 @@ Suggests:
     brms,
     quarto
 VignetteBuilder: quarto
-URL: https://github.com/gam-mafia/inlaws
+URL: https://gam-mafia.github.io/inlaws/,
+    https://github.com/gam-mafia/inlaws
 BugReports: https://github.com/gam-mafia/inlaws/issues
 Roxygen: list(markdown = TRUE)
 Config/roxygen2/version: 8.1.0

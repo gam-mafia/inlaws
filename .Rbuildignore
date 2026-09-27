@@ -3,4 +3,10 @@
 ^MIGRATION\.md$
 ^\.git$
 ^\.gitignore$
+^\.github$
+^_pkgdown\.yml$
+^docs$
+^pkgdown$
+^cobertura\.xml$
+^coverage\.(csv|rds)$
 ^vignettes/\.quarto$
