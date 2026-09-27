@@ -17,6 +17,7 @@ reference:
   - title: Censored and extreme-value families
     contents:
       - cgamma
+      - cgammals
       - clognormal
       - clognormalls
       - gpd

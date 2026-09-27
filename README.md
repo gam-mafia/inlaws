@@ -19,7 +19,7 @@ vignettes. Building the vignette requires the Quarto CLI and the R package
 | Response | Family constructors |
 | --- | --- |
 | Beta-binomial | `betabinomial()` |
-| Censored gamma | `cgamma()` |
+| Censored gamma | `cgamma()`, `cgammals()` |
 | Censored log-normal | `clognormal()`, `clognormalls()` |
 | Conway-Maxwell-Poisson | `cmp()` |
 | Cumulative-link ordinal | `cumulative_link()` |

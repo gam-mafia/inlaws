@@ -2,6 +2,7 @@
 
 export(betabinomial)
 export(cgamma)
+export(cgammals)
 export(clognormal)
 export(clognormalls)
 export(cmp)

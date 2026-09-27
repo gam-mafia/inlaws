@@ -24,6 +24,7 @@ parameter selection, not simply maximization of an unpenalized likelihood.
 |:--|:--|:--:|:--:|:--:|:--:|:--:|:--:|
 | `betabinomial()` | General | Yes | No | Yes | No / No | No | No / No |
 | `cgamma()` | Extended | Yes | Yes | ? | ? / ? | Yes | Yes / ? |
+| `cgammals()` | General | Yes | No | Yes | No / No | No | No / No |
 | `clognormal()` | Extended | Yes | Yes | Yes | ? / ? | Yes | Yes / Yes |
 | `clognormalls()` | General | Yes | No | Yes | No / No | No | No / No |
 | `cmp()` | Extended | Yes | ? | ? | ? / ? | ? | ? / ? |
@@ -61,6 +62,13 @@ does not by itself establish that every fitting route works.
   been validated for the other NCV-capable families listed here. Discrete
   `bam()` NCV uses the working linear model, so its optimum need not match
   `gam()` NCV.
+- **Censored location-scale families:** `cgammals()` and `clognormalls()`
+  use two formulae and support REML and NCV, including grouped neighbourhoods
+  and offsets in both predictors. `cgammals()` returns mean and dispersion
+  (`mu`, `phi`), with variance `phi * mu^2`; `clognormalls()` returns mean and
+  log-response standard deviation (`mu`, `sigma`). Both use ordinary log links
+  and require separate coefficients for the two predictors. A constant second
+  predictor need not reproduce REML estimates from `cgamma()` or `clognormal()`.
 - **ML edge cases:** in mgcv 1.9-4, entirely unpenalized `gam(method = "ML")`
   models can hit a native solver limitation with `gpoisson()` or the cauchit link
   of `cumulative_link()`. Smooth-model ML is supported; see the family help pages
