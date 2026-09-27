@@ -90,7 +90,7 @@
   # Integral over a short log interval, with the constant log density factored
   # out before exponentiation. Twelve nodes are ample under the width rule.
   quadrature <- function(lo, width, loc, ti, si) {
-    q <- statmod::gauss.quad(12L, kind = "legendre")
+    q <- .gauss_legendre(12L)
     half <- width/2; mid <- lo + half
     zmid <- M(C(mid) - loc, si)
     ref <- -M(zmid, zmid)/2 - ti - C(rep(log(2*pi)/2, length(lo)))

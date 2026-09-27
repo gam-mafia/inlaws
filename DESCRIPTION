@@ -13,7 +13,6 @@ Depends:
     R (>= 4.1.0),
     mgcv (>= 1.9-3)
 Imports:
-    statmod,
     stats,
     utils
 Suggests:

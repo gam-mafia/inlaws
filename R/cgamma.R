@@ -143,7 +143,7 @@
 # in derivatives of boundary differences. Integrate the density and its
 # analytic derivatives together using a short Gauss-Legendre rule instead.
 .cg_quadrature <- function(lo, hi, mu, k) {
-  rule <- statmod::gauss.quad(16, kind = "legendre")
+  rule <- .gauss_legendre(16)
   y <- lo + (hi - lo) * (rule$nodes + 1) / 2
   x <- k * y / mu
   X <- .cg_jet(x, -x, x)
