@@ -10,3 +10,4 @@
 ^cobertura\.xml$
 ^coverage\.(csv|rds)$
 ^vignettes/\.quarto$
+^output$

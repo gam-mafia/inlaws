@@ -1,4 +1,4 @@
-# inlaws
+# inlaws <img src="man/figures/logo.png" align="right" height="160" alt="inlaws hex sticker with a family of three distribution characters" />
 
 [![R CMD check](https://github.com/gam-mafia/inlaws/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/gam-mafia/inlaws/actions/workflows/R-CMD-check.yaml)
 [![Test coverage](https://github.com/gam-mafia/inlaws/actions/workflows/test-coverage.yaml/badge.svg)](https://github.com/gam-mafia/inlaws/actions/workflows/test-coverage.yaml)

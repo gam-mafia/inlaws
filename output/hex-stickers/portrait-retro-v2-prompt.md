@@ -1,0 +1,3 @@
+Built-in image generation edit of portrait-retro.png.
+
+Edit the supplied burgundy inlaws hex sticker. Change ONLY the size of the cream word "inlaws": scale the existing lettering uniformly to 92% of its current width and height, centered at the same location, giving it slightly more breathing room. Preserve exact spelling, same typeface, weight, color, and lettering style. Keep every other detail unchanged: three distribution characters and their faces/accessories/positions/sizes, burgundy interior, cream hexagonal border, outer silhouette, palette and composition. Preserve transparency outside the hexagon. Do not redraw or redesign the illustration.
