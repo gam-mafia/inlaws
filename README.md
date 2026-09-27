@@ -69,8 +69,18 @@ workflow runs the base-R tests with **covr**, reports the percentage in the run
 summary, and uploads XML, CSV, and RDS coverage reports as the `coverage`
 artifact. No external coverage service or token is required.
 
+The secondary `brms-validation` workflow compares the Dirichlet likelihood,
+conditional means, and generated Stan parameterization with **brms** on Linux.
+It runs for changes to R code, package metadata, validation scripts, or its
+workflow, and can also be started manually. It runs independently of the
+ordinary checks, coverage, and site build, which do not require **brms**.
+To run the comparison locally, install **brms** explicitly with
+`install.packages("brms")`, install the current **inlaws** package, and run
+`source("inst/validation/dirichlet-brms.R")`. No Stan compilation or sampling
+is performed by this comparison.
+
 Build the documentation locally with `pkgdown::build_site()` (requires
 **pkgdown** and Quarto). The pkgdown workflow builds pull requests and uploads
 a `pkgdown-preview` artifact; pushes to `main` build and deploy the site to
 GitHub Pages. The repository's Pages publishing source must be **GitHub
-Actions**. All three workflows can also be run manually from the Actions tab.
+Actions**. All workflows can also be run manually from the Actions tab.

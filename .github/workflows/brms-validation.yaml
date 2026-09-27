@@ -1,0 +1,43 @@
+# Uses the setup actions from https://github.com/r-lib/actions/tree/v2/examples
+name: brms-validation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'R/**'
+      - 'DESCRIPTION'
+      - 'NAMESPACE'
+      - 'inst/validation/**'
+      - '.github/workflows/brms-validation.yaml'
+  pull_request:
+    paths:
+      - 'R/**'
+      - 'DESCRIPTION'
+      - 'NAMESPACE'
+      - 'inst/validation/**'
+      - '.github/workflows/brms-validation.yaml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  brms-validation:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: 'release'
+          use-public-rspm: true
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          extra-packages: any::brms, local::.
+          dependencies: '"hard"'
+          install-quarto: false
+      - name: Compare Dirichlet family with brms
+        shell: Rscript {0}
+        run: source("inst/validation/dirichlet-brms.R", echo = TRUE)

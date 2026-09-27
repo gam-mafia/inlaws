@@ -17,7 +17,6 @@ Imports:
     utils
 Suggests:
     MASS,
-    brms,
     quarto
 VignetteBuilder: quarto
 URL: https://gam-mafia.github.io/inlaws/,
