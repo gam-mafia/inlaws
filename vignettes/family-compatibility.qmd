@@ -32,6 +32,8 @@ parameter selection, not simply maximization of an unpenalized likelihood.
 | `dirmult()` | General | Yes | No | No | No / No | No | No / No |
 | `gpoisson()` | Extended | Yes | Yes | ? | ? / ? | ? | ? / ? |
 | `gpd()` | General | Yes | No | No | No / No | No | No / No |
+| `pig()` | Extended | Yes | Yes | Yes | Yes / Yes | Yes | Yes / Yes |
+| `pigls()` | General | Yes | No | Yes | No / No | No | No / No |
 | `nbls()` | General | Yes | No | No | No / No | No | No / No |
 | `cumulative_link()` | Extended | Yes | Yes | Yes | Yes / Yes | Yes | Yes / Yes |
 | `ordbeta()` | Extended | Yes | Yes | No | No / No | No | No / No |
@@ -73,13 +75,19 @@ does not by itself establish that every fitting route works.
   models can hit a native solver limitation with `gpoisson()` or the cauchit link
   of `cumulative_link()`. Smooth-model ML is supported; see the family help pages
   for alternatives.
+- **Poisson inverse Gaussian predictors:** `pigls()` models mean and dispersion
+  with two log-linked predictors and returns `mu`, `theta`, with variance
+  `mu + theta * mu^2`. It supports separate coefficient blocks and offsets in
+  both predictors. REML uses outer Newton or BFGS and NCV uses BFGS; EFS and
+  QNCV are outside its supported scope. Constant dispersion via `~ 1` need
+  not reproduce REML estimates from `pig()`.
 - **Scope:** `cmp()` is a pure-R reference implementation whose large-data
   performance is unvalidated. No family here has a supported `gamm()` route.
   GCV/UBRE and other unlisted smoothing criteria are outside this summary.
 
 For a conservative starting point, use `gam(..., method = "REML")` with the
 family's documented formula structure. For large-data fitting, the tested
-choices are `cgamma()`, `clognormal()`, and `cumulative_link()` with
+choices are `cgamma()`, `clognormal()`, `cumulative_link()`, and `pig()` with
 `bam(..., method = "fREML")`, with or without discretization. Consult each
 family's help for response encoding, links, parameter constraints, and
 prediction semantics; a **Yes** here is not a guarantee of convergence for
@@ -88,6 +96,8 @@ every dataset.
 The evidence for each row is in the correspondingly named test file (for
 example, `tests/cgamma.R`); ordinal tests are in `tests/cumulative-link.R`,
 zero-inflated and hurdle tests in `tests/zinb-models.R` and `tests/zinb-ncv.R`,
+Poisson inverse Gaussian checks in `tests/pig-models.R`, `tests/pigls-models.R`
+and `tests/pigls-ncv.R`,
 and additional NCV checks in `tests/clognormal-ncv.R` and
 `tests/betabinomial-smoothing.R`. Update this table when adding fitting routes
 or extending their validation.

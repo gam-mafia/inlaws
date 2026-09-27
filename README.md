@@ -26,6 +26,7 @@ vignettes. Building the vignette requires the Quarto CLI and the R package
 | Dirichlet | `dirichlet()` |
 | Dirichlet-multinomial | `dirmult()` |
 | Generalized Poisson | `gpoisson()` |
+| Poisson inverse Gaussian | `pig()`, `pigls()` |
 | Negative binomial location and size | `nbls()` |
 | Ordered beta | `ordbeta()` |
 | Zero-inflated / hurdle negative binomial | `zinb()`, `zanb()` |

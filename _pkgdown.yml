@@ -12,6 +12,8 @@ reference:
       - betabinomial
       - cmp
       - gpoisson
+      - pig
+      - pigls
       - nbls
       - zinb
   - title: Censored and extreme-value families

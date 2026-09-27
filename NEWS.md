@@ -1,5 +1,13 @@
 # inlaws 0.0.0.9000
 
+* Added `pigls()` for Poisson inverse Gaussian counts with separate log-mean
+  and log-dispersion predictors, REML and NCV fitting in `gam()`, and
+  simulation, CDF, and quantile callbacks.
+
+* Added `pig()` for Poisson inverse Gaussian count models with fixed or
+  estimated global dispersion, REML/ML/NCV support, ordinary and discrete
+  `bam()` fitting, and simulation, CDF, and quantile callbacks.
+
 * Added `cgammals()` for censored gamma models with separate log-mean and
   log-dispersion predictors, REML and NCV fitting, and distribution callbacks.
 
