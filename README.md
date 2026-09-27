@@ -21,7 +21,7 @@ vignettes. Building the vignette requires the Quarto CLI and the R package
 | Beta-binomial | `betabinomial()` |
 | Censored gamma | `cgamma()`, `cgammals()` |
 | Censored log-normal | `clognormal()`, `clognormalls()` |
-| Conway-Maxwell-Poisson | `cmp()` |
+| Conway-Maxwell-Poisson | `cmp()`, `cmpls()` |
 | Cumulative-link ordinal | `cumulative_link()` |
 | Dirichlet | `dirichlet()` |
 | Dirichlet-multinomial | `dirmult()` |

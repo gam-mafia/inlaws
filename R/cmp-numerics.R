@@ -169,12 +169,15 @@
   out
 }
 
-# Likelihood jet in (mu, log(nu)), obtained by formal implicit inversion.
-.cmp_lljet <- function(y, mu, nu, z) {
+# Likelihood jet in (mu, log(nu)), or (log(mu), log(nu)) for predictors,
+# obtained by formal implicit inversion.
+.cmp_lljet <- function(y, mu, nu, z, predictor = FALSE) {
   A <- .cmp_A(z); n <- length(z)
   dnu <- dmu <- da <- matrix(0, n, 15)
   for (k in 1:4) dnu[, k * (k + 1) / 2 + k + 1] <- nu / factorial(k)
-  dmu[, 2] <- 1
+  if (predictor) {
+    for (k in 1:4) dmu[, k * (k + 1) / 2 + 1] <- mu / factorial(k)
+  } else dmu[, 2] <- 1
   Aa <- A[, 1:15, drop = FALSE] * 0
   for (k in 1:15) {
     ij <- .cmp_i4[k, ] + c(1, 0)

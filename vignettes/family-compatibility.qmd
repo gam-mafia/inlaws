@@ -28,6 +28,7 @@ parameter selection, not simply maximization of an unpenalized likelihood.
 | `clognormal()` | Extended | Yes | Yes | Yes | ? / ? | Yes | Yes / Yes |
 | `clognormalls()` | General | Yes | No | Yes | No / No | No | No / No |
 | `cmp()` | Extended | Yes | ? | ? | ? / ? | ? | ? / ? |
+| `cmpls()` | General | Yes | No | Yes | No / No | No | No / No |
 | `dirichlet()` | General | Yes | No | No | No / No | No | No / No |
 | `dirmult()` | General | Yes | No | No | No / No | No | No / No |
 | `gpoisson()` | Extended | Yes | Yes | ? | ? / ? | ? | ? / ? |
@@ -81,6 +82,10 @@ does not by itself establish that every fitting route works.
   both predictors. REML uses outer Newton or BFGS and NCV uses BFGS; EFS and
   QNCV are outside its supported scope. Constant dispersion via `~ 1` need
   not reproduce REML estimates from `pig()`.
+- **CMP predictors:** `cmpls()` models the exact mean and dispersion with
+  separate log-link predictors in `gam()`, with REML and NCV support.
+  Use two formulae; `~ 1` estimates constant dispersion. See `?cmpls` for
+  numerical limits and supported prediction and distribution callbacks.
 - **Scope:** `cmp()` is a pure-R reference implementation whose large-data
   performance is unvalidated. No family here has a supported `gamm()` route.
   GCV/UBRE and other unlisted smoothing criteria are outside this summary.
