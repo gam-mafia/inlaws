@@ -1,5 +1,10 @@
 # inlaws 0.0.0.9000
 
+- Add `log_logistic()` and `log_logisticls()` for arithmetic mean and
+  log-response logistic scale, using log/logit links. Includes distribution
+  callbacks, analytic fourth-order derivatives, and tested REML/NCV routes;
+  the single-predictor family also supports ML and discrete `bam()`.
+
 * Added `cmpls()` with separate log-mean and log-dispersion predictors for
   Conway-Maxwell-Poisson counts, REML and NCV support in `gam()`, and
   simulation, CDF, and quantile callbacks.

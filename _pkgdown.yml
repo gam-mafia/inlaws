@@ -17,6 +17,10 @@ reference:
       - pigls
       - nbls
       - zinb
+  - title: Positive continuous families
+    contents:
+      - log_logistic
+      - log_logisticls
   - title: Censored and extreme-value families
     contents:
       - cgamma

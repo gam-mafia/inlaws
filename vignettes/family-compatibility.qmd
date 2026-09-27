@@ -35,6 +35,8 @@ parameter selection, not simply maximization of an unpenalized likelihood.
 | `gpd()` | General | Yes | No | No | No / No | No | No / No |
 | `pig()` | Extended | Yes | Yes | Yes | Yes / Yes | Yes | Yes / Yes |
 | `pigls()` | General | Yes | No | Yes | No / No | No | No / No |
+| `log_logistic()` | Extended | Yes | Yes | Yes | Yes / Yes | Yes | Yes / Yes |
+| `log_logisticls()` | General | Yes | No | Yes | No / No | No | No / No |
 | `nbls()` | General | Yes | No | No | No / No | No | No / No |
 | `cumulative_link()` | Extended | Yes | Yes | Yes | Yes / Yes | Yes | Yes / Yes |
 | `ordbeta()` | Extended | Yes | Yes | No | No / No | No | No / No |
@@ -86,6 +88,12 @@ does not by itself establish that every fitting route works.
   separate log-link predictors in `gam()`, with REML and NCV support.
   Use two formulae; `~ 1` estimates constant dispersion. See `?cmpls` for
   numerical limits and supported prediction and distribution callbacks.
+- **Log-logistic predictors:** `log_logistic()` models arithmetic mean with a
+  log link and estimates or fixes a global logistic scale for `log(Y)`.
+  `log_logisticls()` uses log/logit links for mean and varying scale, with
+  two formulae and separate coefficients. Both constrain scale to `(0, 1)`;
+  variance is infinite at scale >= 0.5, where Pearson residuals are `NA`.
+  Tests are in `tests/log-logistic-models.R` and `tests/log-logisticls.R`.
 - **Scope:** `cmp()` is a pure-R reference implementation whose large-data
   performance is unvalidated. No family here has a supported `gamm()` route.
   GCV/UBRE and other unlisted smoothing criteria are outside this summary.

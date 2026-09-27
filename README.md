@@ -20,6 +20,7 @@ vignettes. Building the vignette requires the Quarto CLI and the R package
 | --- | --- |
 | Beta-binomial | `betabinomial()` |
 | Censored gamma | `cgamma()`, `cgammals()` |
+| Log-logistic mean and scale | `log_logistic()`, `log_logisticls()` |
 | Censored log-normal | `clognormal()`, `clognormalls()` |
 | Conway-Maxwell-Poisson | `cmp()`, `cmpls()` |
 | Cumulative-link ordinal | `cumulative_link()` |
