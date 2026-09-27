@@ -4,6 +4,12 @@ Additional distribution families for **mgcv**. This is a development package;
 consult each family's help for parameterizations, limitations, and supported
 fitting methods. Availability does not imply identical validation maturity.
 
+See the [family compatibility vignette](vignettes/family-compatibility.qmd)
+for the current `gam()`/`bam()` and smoothing-selection support matrix, or run
+`vignette("family-compatibility", package = "inlaws")` after installing with
+vignettes. Building the vignette requires the Quarto CLI and the R package
+**quarto**.
+
 | Response | Family constructors |
 | --- | --- |
 | Beta-binomial | `betabinomial()` |

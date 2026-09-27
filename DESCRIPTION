@@ -17,7 +17,9 @@ Imports:
     utils
 Suggests:
     MASS,
-    brms
+    brms,
+    quarto
+VignetteBuilder: quarto
 URL: https://github.com/gam-mafia/inlaws
 BugReports: https://github.com/gam-mafia/inlaws/issues
 Roxygen: list(markdown = TRUE)

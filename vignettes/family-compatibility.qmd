@@ -1,0 +1,85 @@
+---
+title: "Family compatibility"
+format:
+  html:
+    embed-resources: true
+    toc: false
+vignette: >
+  %\VignetteIndexEntry{Family compatibility}
+  %\VignetteEngine{quarto::html}
+  %\VignetteEncoding{UTF-8}
+---
+
+This is a snapshot of **inlaws** 0.0.0.9000, based on the family
+implementations, help pages, and regression tests in `tests/`, reviewed with
+**mgcv** 1.9-4. The package requires mgcv >= 1.9-3; discrete `bam()` NCV
+requires mgcv >= 1.9-4.
+
+**Yes** denotes an implemented route covered by package regression tests;
+**No** denotes an unsupported route; **?** denotes a route that has not been
+validated, rather than a known failure. Method columns refer to smoothing
+parameter selection, not simply maximization of an unpenalized likelihood.
+
+| Family | Class | `gam()` REML | `gam()` ML | `gam()` NCV | `bam()` REML / ML | `bam()` fREML | Discrete `bam()` fREML / NCV |
+|:--|:--|:--:|:--:|:--:|:--:|:--:|:--:|
+| `betabinomial()` | General | Yes | No | Yes | No / No | No | No / No |
+| `cgamma()` | Extended | Yes | Yes | ? | ? / ? | Yes | Yes / ? |
+| `clognormal()` | Extended | Yes | Yes | Yes | ? / ? | Yes | Yes / Yes |
+| `clognormalls()` | General | Yes | No | Yes | No / No | No | No / No |
+| `cmp()` | Extended | Yes | ? | ? | ? / ? | ? | ? / ? |
+| `dirichlet()` | General | Yes | No | No | No / No | No | No / No |
+| `dirmult()` | General | Yes | No | No | No / No | No | No / No |
+| `gp()` | Extended | Yes | Yes | ? | ? / ? | ? | ? / ? |
+| `gpd()` | General | Yes | No | No | No / No | No | No / No |
+| `nbls()` | General | Yes | No | No | No / No | No | No / No |
+| `cumulative_link()` | Extended | Yes | Yes | Yes | Yes / Yes | Yes | Yes / Yes |
+| `ordbeta()` | Extended | Yes | Yes | No | No / No | No | No / No |
+| `zanb()` | General | Yes | No | Yes | No / No | No | No / No |
+| `zinb()` | General | Yes | No | Yes | No / No | No | No / No |
+
+The ordinary `bam()` columns mean `discrete = FALSE`. The final column means
+`discrete = TRUE`: discretization is available with fREML and NCV, not ML or
+ordinary REML. `gam()` does not offer fREML. Support for an extended family
+does not by itself establish that every fitting route works.
+
+## Qualifications
+
+- **General families:** mgcv does not support these in `bam()`. In mgcv 1.9-4,
+  `gam()` changes an ML request to REML for these families. It also resets NCV
+  to REML (with a warning) when the family lacks an NCV callback, as for
+  `gpd()`. A returned model therefore does not prove the requested method ran;
+  inspect `fit$method`.
+- **Optimizers:** `dirmult()` uses extended Fellner--Schall (`optimizer =
+  "efs"`), selected automatically; Newton/BFGS smoothing optimization is not
+  implemented. `betabinomial()` has tested REML Newton and BFGS routes;
+  `nbls()`, `zinb()`, and `zanb()` also have tested EFS routes. NCV for
+  `zinb()` and `zanb()` uses BFGS, not EFS.
+- **NCV and QNCV:** NCV is approximate neighbourhood cross-validation.
+  `betabinomial()` supports row-level neighbourhoods, not automatic
+  leave-one-trial-out validation of aggregated binomial counts, and explicitly
+  rejects QNCV. `zinb()` and `zanb()` support both NCV and QNCV. QNCV has not
+  been validated for the other NCV-capable families listed here. Discrete
+  `bam()` NCV uses the working linear model, so its optimum need not match
+  `gam()` NCV.
+- **ML edge cases:** in mgcv 1.9-4, entirely unpenalized `gam(method = "ML")`
+  models can hit a native solver limitation with `gp()` or the cauchit link
+  of `cumulative_link()`. Smooth-model ML is supported; see the family help pages
+  for alternatives.
+- **Scope:** `cmp()` is a pure-R reference implementation whose large-data
+  performance is unvalidated. No family here has a supported `gamm()` route.
+  GCV/UBRE and other unlisted smoothing criteria are outside this summary.
+
+For a conservative starting point, use `gam(..., method = "REML")` with the
+family's documented formula structure. For large-data fitting, the tested
+choices are `cgamma()`, `clognormal()`, and `cumulative_link()` with
+`bam(..., method = "fREML")`, with or without discretization. Consult each
+family's help for response encoding, links, parameter constraints, and
+prediction semantics; a **Yes** here is not a guarantee of convergence for
+every dataset.
+
+The evidence for each row is in the correspondingly named test file (for
+example, `tests/cgamma.R`); ordinal tests are in `tests/cumulative-link.R`,
+zero-inflated and hurdle tests in `tests/zinb-models.R` and `tests/zinb-ncv.R`,
+and additional NCV checks in `tests/clognormal-ncv.R` and
+`tests/betabinomial-smoothing.R`. Update this table when adding fitting routes
+or extending their validation.
