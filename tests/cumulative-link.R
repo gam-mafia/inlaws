@@ -12,7 +12,7 @@ th <- log(c(0.7, 1.2, 0.9))
 w <- seq(0.5, 2, length.out = length(y)); w[3] <- 0
 h <- 1e-5
 for (link in links) {
-  f <- ocat_link(R = 5, link = link)
+  f <- cumulative_link(R = 5, link = link)
   dd <- function(mu = mu, theta = th) f$Dd(y, mu, theta, w, 2)
   a <- dd(mu, th)
   plus <- dd(mu+h, th); minus <- dd(mu-h, th)
@@ -70,7 +70,7 @@ for (link in links) {
 }
 
 # Logistic derivatives independently match mgcv's established family.
-f <- ocat_link(R = 5)
+f <- cumulative_link(R = 5)
 a <- f$Dd(y, mu, th, w, 2)
 b <- mgcv::ocat(R = 5)$Dd(y, mu, th, w, 2)
 for (nm in intersect(names(a), names(b))) near(a[[nm]], b[[nm]], 2e-7)
@@ -84,7 +84,7 @@ d$ordered <- ordered(d$y)
 for (link in links) {
   # Pure ML comparison: no smoothing penalties or REML integration differences.
   if (link != "cauchit") {
-  f <- gam(y ~ x, data = d, family = ocat_link(R = 4, link = link), method = "ML")
+  f <- gam(y ~ x, data = d, family = cumulative_link(R = 4, link = link), method = "ML")
   p <- MASS::polr(ordered ~ x, data = d,
                   method = if (link == "logit") "logistic" else link,
                   control = list(reltol = 1e-10))
@@ -94,7 +94,7 @@ for (link in links) {
     # polr clips CDF arguments to +/-100, materially changing Cauchy tails.
     # Also avoid mgcv 1.9-4's native gam ML failure with negative curvature
     # and no penalized terms. Use bam and an independent exact likelihood.
-    f <- bam(y ~ x, data=d, family=ocat_link(R=4,link=link), method="ML",
+    f <- bam(y ~ x, data=d, family=cumulative_link(R=4,link=link), method="ML",
              control=gam.control(epsilon=1e-12,maxit=500))
     objective <- function(v) {
       cut <- c(-Inf, -1, -1+exp(v[3]), -1+sum(exp(v[3:4])), Inf)
@@ -110,7 +110,7 @@ for (link in links) {
     for (method in methods) {
       if (engine == "bam" && method == "NCV" && packageVersion("mgcv") < "1.9.4") next
       args <- list(formula = y ~ s(x, k = 6, bs = "cr"), data = d,
-                   family = ocat_link(R = 4, link = link), method = method)
+                   family = cumulative_link(R = 4, link = link), method = method)
       if (engine == "bam") args$discrete <- method %in% c("fREML", "NCV")
       g <- do.call(get(engine), args)
       pr <- predict(g, newdata = d[1:12, ], type = "response", se.fit = TRUE)
@@ -123,14 +123,14 @@ for (link in links) {
   }
   # Fixed thresholds and serialization retain the same distribution state.
   fixed <- gam(y ~ s(x, k = 6), data = d, method = "REML",
-               family = ocat_link(theta = c(1.3, 1.1), link = link))
+               family = cumulative_link(theta = c(1.3, 1.1), link = link))
   near(fixed$family$getTheta(TRUE), c(-1, 0.3, 1.4))
   z <- unserialize(serialize(fixed, NULL))
   near(predict(z, type = "response"), predict(fixed, type = "response"))
   stopifnot(all(is.finite(residuals(fixed))), all(is.finite(residuals(fixed, type = "response"))))
 }
 # Additional bam fREML route without discretization.
-g <- bam(y ~ s(x, k=6), data=d, family=ocat_link(R=4, link="probit"), method="fREML")
+g <- bam(y ~ s(x, k=6), data=d, family=cumulative_link(R=4, link="probit"), method="fREML")
 stopifnot(all(is.finite(coef(g))))
 # Distribution callbacks accept fitted and predicted latent locations.
 mu <- fitted(g)
@@ -142,30 +142,30 @@ stopifnot(length(g$family$rd(predict(g, d[1:7, ], type = "link"))) == 7L)
 d$binary <- as.integer(d$y > 2)+1L
 for (link in c("logit", "probit", "cloglog", "cauchit")) {
   engine <- if (link == "cauchit") bam else gam
-  f <- engine(binary ~ x, data=d, family=ocat_link(R=2,link=link), method="ML",
+  f <- engine(binary ~ x, data=d, family=cumulative_link(R=2,link=link), method="ML",
               control=gam.control(epsilon=1e-10,maxit=200))
   b <- glm(I(binary == 1) ~ x, data=d, family=binomial(link))
   near(predict(f,type="response")[,1], fitted(b), 2e-5)
 }
 # Fractional weights and zero-weight observations: compare with frequency expansion.
 d$w <- rep(c(0,1,2,3),length.out=n)
-f <- gam(y~x,data=d,weights=w,family=ocat_link(R=4,link="probit"),method="ML")
+f <- gam(y~x,data=d,weights=w,family=cumulative_link(R=4,link="probit"),method="ML")
 e <- d[rep(seq_len(n),d$w),]
-b <- gam(y~x,data=e,family=ocat_link(R=4,link="probit"),method="ML")
+b <- gam(y~x,data=e,family=cumulative_link(R=4,link="probit"),method="ML")
 near(predict(f,type="response"),predict(b,newdata=d,type="response"),2e-6)
-for (bad in list(NULL, 1, 2.5, NA_real_, Inf, c(3,4))) error(ocat_link(R=bad))
-error(ocat_link(theta=c(1,0)))
-error(ocat_link(R=5,theta=c(1,2)))
-error(ocat_link(R=4,link="identity"))
-start_family <- ocat_link(theta=c(-0.4, 2), link="probit")
+for (bad in list(NULL, 1, 2.5, NA_real_, Inf, c(3,4))) error(cumulative_link(R=bad))
+error(cumulative_link(theta=c(1,0)))
+error(cumulative_link(R=5,theta=c(1,2)))
+error(cumulative_link(R=4,link="identity"))
+start_family <- cumulative_link(theta=c(-0.4, 2), link="probit")
 near(start_family$preinitialize(d$y, start_family)$Theta, log(c(.4,2)))
 stopifnot(start_family$n.theta == 2L)
-error(gam(y~x,data=transform(d,y=y+.1),family=ocat_link(R=4)))
-error(gam(y~x,data=transform(d,y=ordered(y)),family=ocat_link(R=4)))
+error(gam(y~x,data=transform(d,y=y+.1),family=cumulative_link(R=4)))
+error(gam(y~x,data=transform(d,y=ordered(y)),family=cumulative_link(R=4)))
 
 # Extreme-value tails: exact endpoint derivatives avoid catastrophic cancellation.
 for (link in c("cloglog", "loglog")) {
-  f <- ocat_link(R=4,link=link)
+  f <- cumulative_link(R=4,link=link)
   m <- if(link == "cloglog") -100 else 100
   y <- if(link == "cloglog") 4L else 1L
   a <- f$Dd(y, m, c(0,0), 1, 2)
@@ -184,14 +184,14 @@ groups <- split(seq_len(nrow(d3)), rep(seq_len(80),each=3))
 nei <- list(a=unlist(groups,use.names=FALSE),ma=seq(3,240,3),d=seq_len(240),md=seq(3,240,3))
 for(engine in c("gam","bam")) {
   if(engine == "bam" && packageVersion("mgcv") < "1.9.4") next
-  args <- list(formula=y~s(x,k=6),data=d3,family=ocat_link(R=3,link="probit"),method="NCV",nei=nei)
+  args <- list(formula=y~s(x,k=6),data=d3,family=cumulative_link(R=3,link="probit"),method="NCV",nei=nei)
   if(engine == "bam") args$discrete <- TRUE
   g3 <- do.call(get(engine),args)
   stopifnot(all(is.finite(coef(g3))))
 }
 # Offset handling and response standard errors against manual delta method.
 d3$o <- seq(-.2,.2,length.out=nrow(d3))
-f <- gam(y~x+offset(o),data=d3,family=ocat_link(R=3,link="probit"),method="ML")
+f <- gam(y~x+offset(o),data=d3,family=cumulative_link(R=3,link="probit"),method="ML")
 p <- MASS::polr(ordered(y)~x+offset(o),data=d3,method="probit",control=list(reltol=1e-10))
 near(predict(f,type="response"),predict(p,type="probs"),3e-5)
 pr <- predict(f,type="response",se.fit=TRUE)

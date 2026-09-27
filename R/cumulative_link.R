@@ -50,7 +50,7 @@
 #' Missing inputs propagate; invalid probabilities give NaN with a warning.
 #'
 #' The derivation, derivative conventions, identification, and numerical
-#' details are in `system.file("maths", "ocat_link.md", package="inlaws")`.
+#' details are in `system.file("maths", "cumulative_link.md", package="inlaws")`.
 #' This implementation is intended for modest numbers of categories:
 #' threshold derivative storage grows quadratically in `R`.
 #' @return An `extended.family` object for [mgcv::gam()] and [mgcv::bam()].
@@ -61,16 +61,16 @@
 #' x <- runif(300, -2, 2)
 #' y <- as.integer(cut(sin(x) + rnorm(300),
 #'                     c(-Inf, -1, 0.5, 1.5, Inf)))
-#' fit <- mgcv::gam(y ~ s(x, k = 8), family = ocat_link(R = 4, link = "probit"),
+#' fit <- mgcv::gam(y ~ s(x, k = 8), family = cumulative_link(R = 4, link = "probit"),
 #'                  method = "REML")
 #' head(predict(fit, type = "response"))
 #' fit$family$getTheta(TRUE)
 #' head(fit$family$cdf(2, fitted(fit)))
 #' head(fit$family$qf(0.9, fitted(fit)))
 #' head(fit$family$rd(fitted(fit)))
-ocat_link <- function(R = NULL,
-                      link = c("logit", "probit", "cloglog", "loglog", "cauchit"),
-                      theta = NULL) {
+cumulative_link <- function(R = NULL,
+                            link = c("logit", "probit", "cloglog", "loglog", "cauchit"),
+                            theta = NULL) {
   link <- match.arg(link)
   if (!is.null(theta)) {
     if (!is.numeric(theta) || !is.null(dim(theta)) ||

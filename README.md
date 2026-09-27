@@ -10,7 +10,7 @@ fitting methods. Availability does not imply identical validation maturity.
 | Censored gamma | `cgamma()` |
 | Censored log-normal | `clognormal()`, `clognormalls()` |
 | Conway-Maxwell-Poisson | `cmp()` |
-| Cumulative-link ordinal | `ocat_link()` |
+| Cumulative-link ordinal | `cumulative_link()` |
 | Dirichlet | `dirichlet()` |
 | Dirichlet-multinomial | `dirmult()` |
 | Generalized Poisson | `gp()` |

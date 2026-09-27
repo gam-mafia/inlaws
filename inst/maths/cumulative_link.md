@@ -1,7 +1,7 @@
 # Cumulative-link ordered categorical models for mgcv
 
 This document derives the likelihood and derivatives implemented by
-`inlaws::ocat_link()`. It follows the purpose of the package's censored
+`inlaws::cumulative_link()`. It follows the purpose of the package's censored
 log-normal mathematical notes: make the parameterization, calculus and mapping
 to the fitting code explicit. It is Markdown with LaTeX mathematics; no LyX
 source or generated PDF is required.
@@ -352,7 +352,7 @@ computational design.
 
 ## 9. Verification and references
 
-`tests/ocat-link.R` checks central finite differences of the location, threshold
+`tests/cumulative-link.R` checks central finite differences of the location, threshold
 and mixed derivatives; comparison to mgcv's logistic derivatives; unpenalized
 ML probabilities and thresholds against `MASS::polr()` for four links and an
 independent exact-likelihood optimizer for cauchit; fitting routes; fixed
