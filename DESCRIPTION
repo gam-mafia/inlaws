@@ -1,0 +1,25 @@
+Package: inlaws
+Title: Additional Distribution Families for mgcv
+Version: 0.0.0.9000
+Authors@R: person("Gavin", "Simpson", email = "ucfagls@gmail.com",
+    role = c("aut", "cre"))
+Description: Additional response distribution families for generalized additive
+    models fitted with 'mgcv'. Includes censored, count, ordinal, compositional,
+    and extreme-value families, their distribution callbacks, and mathematical
+    validation notes.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Depends:
+    R (>= 4.1.0),
+    mgcv (>= 1.9-3)
+Imports:
+    statmod,
+    stats,
+    utils
+Suggests:
+    MASS,
+    brms
+URL: https://github.com/gam-mafia/inlaws
+BugReports: https://github.com/gam-mafia/inlaws/issues
+Roxygen: list(markdown = TRUE)
+Config/roxygen2/version: 8.1.0

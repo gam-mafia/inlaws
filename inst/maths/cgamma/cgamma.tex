@@ -1,0 +1,765 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern,amsmath,amssymb,bm,booktabs,array}
+\usepackage[margin=25mm]{geometry}
+\usepackage[unicode,colorlinks=true,linkcolor=blue,urlcolor=blue,citecolor=blue]{hyperref}
+\usepackage{microtype}
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small Censored gamma family: derivative derivation}
+\fancyhead[R]{\small Draft for checking}
+\fancyfoot[C]{\thepage}
+\setlength{\headheight}{14pt}
+\setlength{\parskip}{5pt}
+\setlength{\parindent}{0pt}
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\Var}{\operatorname{Var}}
+\newcommand{\tr}{\operatorname{tr}}
+\newcommand{\dd}{\mathrm{d}}
+\newcommand{\code}[1]{\texttt{#1}}
+\newcommand{\J}{\mathcal{J}}
+\title{A censored gamma family for generalized additive models\\[5pt]
+\large Likelihood, derivatives and prediction targets}
+\author{Implementation note for \texttt{inlaws}\\
+\small Prepared with Codex; draft for mathematical review}
+\date{19 September 2026}
+\begin{document}
+\maketitle
+\thispagestyle{plain}
+
+This note accompanies \code{R/cgamma.R} on the \code{codex/cgamma} branch.
+It follows the separation between fitting and prediction in Miller's censored
+lognormal note \cite{miller}. The implemented family has one mean predictor,
+a log link, and a single global dispersion parameter. It is not a gamma
+location--scale model. All logarithms below are natural.
+
+\section{Model and notation}
+For independent responses, conditional on the model coefficients,
+\begin{equation}
+ Y_i\mid\bm\beta,\phi\sim\operatorname{Gamma}
+ \left(k,\ \text{rate}=\frac{k}{\mu_i}\right),\qquad
+ \eta_i=\bm x_i^\top\bm\beta+o_i,\quad \mu_i=e^{\eta_i},\quad k=\phi^{-1}.
+ \label{eq:model}
+\end{equation}
+Thus $\E(Y_i\mid\bm\beta,\phi)=\mu_i$ and
+$\Var(Y_i\mid\bm\beta,\phi)=\phi\mu_i^2$. Here $o_i$ is a known offset.
+Internally the estimated family parameter is
+\begin{equation}
+ \theta=\log\phi,\qquad k=e^{-\theta},\qquad
+ \partial_\theta k=-k,\quad \partial_\theta^2 k=k.
+ \label{eq:theta}
+\end{equation}
+The public argument \code{theta} specifies dispersion on its original scale;
+\code{getTheta()} returns $\theta$, whereas \code{getTheta(TRUE)} returns $\phi$.
+This distinction is essential when checking derivatives.
+
+Write $f(y;\mu,k)$ for the response density and $p_k(x)$ for the unit-rate gamma
+density. Define the regularised tails
+\[
+ P(k,x)=\frac{1}{\Gamma(k)}\int_0^x t^{k-1}e^{-t}\dd t,
+ \qquad Q(k,x)=1-P(k,x).
+\]
+For a fixed response bound $b$, use $x_b=kb/\mu$. In particular,
+\[
+ \partial_\mu x_b=-x_b/\mu,\qquad
+ \partial_\theta x_b=-x_b,\qquad \partial_\theta^2x_b=x_b.
+\]
+Partial derivatives in $\mu$ hold $\theta$ fixed, and vice versa. The digamma
+and trigamma functions are $\psi(k)$ and $\psi_1(k)$.
+
+Prior weights $w_i\geq0$ multiply log likelihoods: $\ell=\sum_iw_i\ell_i$.
+They are replication weights, not precision weights changing $k_i$.
+The additional \code{mgcv} scale is fixed at one because $\phi$ is already
+estimated as a family parameter.
+
+\newpage
+\section{Observed likelihood and saturated likelihood}
+Drop the observation subscript until needed. Censoring is assumed
+non-informative conditional on the covariates. With fixed censoring limits,
+\begin{equation}
+ \ell(\mu,\theta)=
+ \begin{cases}
+ \log f(y;\mu,k), & \text{exact }y>0,\\
+ \log P(k,kc/\mu), & Y\leq c,\\
+ \log Q(k,kc/\mu), & Y\geq c,\\
+ \log\{P(k,ku/\mu)-P(k,kl/\mu)\}, & l\leq Y\leq u.
+ \end{cases}
+ \label{eq:lik}
+\end{equation}
+For a continuous response, endpoint inclusion does not affect probabilities.
+One-sided censoring is an interval with $l=0$ or $u=\infty$.
+Denote its probability by $A(\mu,\theta)$.
+
+\subsection{A common deviance definition}
+For each observation let
+\[
+ \ell_s(\theta)=\sup_{\mu>0}\ell(\mu,\theta),\qquad
+ D(\mu,\theta)=2w\{\ell_s(\theta)-\ell(\mu,\theta)\}.
+\]
+For exact data $\mu_s=y$. For a proper one-sided censoring event the
+supremum probability is one, so $\ell_s=0$. This also holds for
+$[0,u]$, $[l,\infty)$ and $[0,\infty)$; the supremum need not be attained at
+a finite positive mean.
+
+For a finite interval $0<l<u<\infty$, define
+\begin{equation}
+ G(x,k)=xp_k(x)=\frac{x^ke^{-x}}{\Gamma(k)}.
+ \label{eq:G}
+\end{equation}
+Differentiating the probability gives
+\begin{equation}
+ A_\mu=\frac{G(x_l,k)-G(x_u,k)}{\mu}.
+ \label{eq:Amu}
+\end{equation}
+The stationary equation is therefore
+\[
+ 0=\log G(x_l,k)-\log G(x_u,k)
+   =k\log(l/u)+k(u-l)/\mu.
+\]
+It has the unique solution
+\begin{equation}
+ \boxed{\mu_s=\frac{u-l}{\log(u/l)}}.
+ \label{eq:musat}
+\end{equation}
+The derivative is positive below $\mu_s$ and negative above it; interval
+probability tends to zero at either end of the positive mean domain.
+Thus this is the maximum. Crucially, $\mu_s$ is independent of $\theta$:
+\[
+ \ell_s^{(j)}(\theta)=\partial_\theta^j\log A(\mu_s,\theta),\qquad j=1,2.
+\]
+No derivative of an optimised mean is needed. Numerically evaluate
+$\log(u/l)$ as $\log\{1+(u-l)/l\}$ using \code{log1p}.
+
+The identity used to check likelihood normalisation is
+\begin{equation}
+ \frac12\sum_iD_i-\sum_iw_i\ell_{s,i}=-\sum_iw_i\ell_i.
+ \label{eq:normalisation}
+\end{equation}
+
+\newpage
+\section{Exact observations: all required derivatives}
+Put $t=y/\mu$ and $x=kt$. The exact log density is
+\begin{equation}
+ \ell=k\log k-k\log\mu-\log\Gamma(k)+(k-1)\log y-ky/\mu.
+ \label{eq:density}
+\end{equation}
+Since $\partial_\mu t=-t/\mu$, repeated differentiation gives
+\begin{align}
+ \ell_\mu&=k(t-1)/\mu,&
+ \ell_{\mu\mu}&=k(1-2t)/\mu^2,\\
+ \ell_{\mu\mu\mu}&=2k(3t-1)/\mu^3,&
+ \ell_{\mu\mu\mu\mu}&=6k(1-4t)/\mu^4.
+ \label{eq:exactmu}
+\end{align}
+Equivalently, for $r\geq1$,
+\begin{equation}
+ \ell_{\mu^r}=(-1)^r(r-1)!\,k(1-rt)\mu^{-r}.
+ \label{eq:exactgeneral}
+\end{equation}
+Because $t$ is independent of $\theta$, each expression is proportional to
+$k=e^{-\theta}$, and hence
+\begin{equation}
+ \boxed{\ell_{\mu^r\theta}=-\ell_{\mu^r},\qquad
+        \ell_{\mu^r\theta\theta}=\ell_{\mu^r}.}
+ \label{eq:exactmixed}
+\end{equation}
+Only $r\leq3$ is needed with one dispersion derivative, and $r\leq2$ with two.
+
+\subsection{Pure dispersion derivatives}
+First differentiate \eqref{eq:density} in $k$:
+\[
+ \ell_k=\log k+1-\psi(k)+\log t-t,
+ \qquad \ell_{kk}=1/k-\psi_1(k).
+\]
+Applying $\partial_\theta=-k\partial_k$ yields
+\begin{align}
+ s:=\ell_\theta
+   &=-k\{\log k+1-\psi(k)+\log t-t\},\label{eq:score}\\
+ \ell_{\theta\theta}
+   &=k\ell_k+k^2\ell_{kk}
+    =-s+k-k^2\psi_1(k).\label{eq:score2}
+\end{align}
+Evaluate these at $t=1$ to obtain exact-observation saturated derivatives.
+As a useful consistency check,
+\[
+ D=2wk\{t-1-\log t\}
+\]
+is the usual gamma deviance divided by dispersion. Consequently
+$D_\theta=-D$ and $D_{\theta\theta}=D$ for exact observations.
+
+\subsection{Independent integral interpretation}
+For an interval with fixed bounds, differentiation under the integral gives
+\begin{equation}
+ A_\theta=\int_l^u f(y)s(y)\dd y,\qquad
+ A_{\theta\theta}=\int_l^u f(y)
+       \{s(y)^2+\ell_{\theta\theta}(y)\}\dd y.
+ \label{eq:integrals}
+\end{equation}
+Thus $(\log A)_\theta=\E[s(Y)\mid l\leq Y\leq u]$ and
+$(\log A)_{\theta\theta}=\E[\ell_{\theta\theta}(Y)\mid l\leq Y\leq u]
++\Var[s(Y)\mid l\leq Y\leq u]$. These identities provide an independent
+quadrature check on the tail-derivative algorithm.
+
+\newpage
+\section{Censored observations: mean derivatives at the boundaries}
+From \eqref{eq:G}, holding $k$ fixed,
+\[
+ \partial_\mu\log G(x_b,k)=(x_b-k)/\mu.
+\]
+For any polynomial $B(x,k)$ and integer $r\geq1$,
+\begin{equation}
+ \partial_\mu\{\mu^{-r}G(x,k)B(x,k)\}
+ =\mu^{-r-1}G(x,k)\{(x-k-r)B-xB_x\}.
+ \label{eq:recurrenceproof}
+\end{equation}
+Start from \eqref{eq:Amu} and set $B_0=1$. Induction gives
+\begin{align}
+ B_r(x,k)&=(x-k-r)B_{r-1}(x,k)-x\partial_xB_{r-1}(x,k),\label{eq:Brec}\\
+ A_{\mu^r}&=\mu^{-r}\{G(x_l,k)B_{r-1}(x_l,k)
+                     -G(x_u,k)B_{r-1}(x_u,k)\}.
+ \label{eq:Ar}
+\end{align}
+The necessary polynomials are
+\begin{align}
+ B_0&=1,\\
+ B_1&=x-k-1,\\
+ B_2&=x^2-2(k+2)x+(k+1)(k+2),\\
+ B_3&=x^3-3(k+3)x^2+3(k+2)(k+3)x
+          -(k+1)(k+2)(k+3).
+ \label{eq:Bexplicit}
+\end{align}
+For $k>0$, the boundary terms, and their required derivatives, vanish as
+$x\downarrow0$ or $x\to\infty$. In computation they are set to zero at
+these endpoints rather than evaluating $0\log0$ or $\infty-\infty$.
+
+\subsection{Convert probability derivatives to log-probability derivatives}
+Let $R_r=A_{\mu^r}/A$, and write $L_r=\partial_\mu^r\log A$. Repeated
+application of the quotient rule gives
+\begin{align}
+ L_1&=R_1,\\
+ L_2&=R_2-R_1^2,\\
+ L_3&=R_3-3R_1R_2+2R_1^3,\\
+ L_4&=R_4-4R_1R_3-3R_2^2+12R_1^2R_2-6R_1^4.
+ \label{eq:logderivs}
+\end{align}
+For example, $\partial_\mu R_r=R_{r+1}-R_rR_1$, which verifies each line
+from the previous one.
+
+Compute the normalised boundary terms as
+\[
+ \frac{G(x_b,k)}{A}=\exp\{\log G(x_b,k)-\log A\}.
+\]
+This avoids forming a potentially underflowed probability $A$ explicitly.
+The same expressions cover left, right and finite-interval censoring; only
+the boundaries change. Narrow finite intervals require the alternative in
+Section~\ref{sec:narrow} to avoid subtracting nearly identical boundary terms.
+
+\newpage
+\section{Mixed derivatives through second-order forward differentiation}
+Represent a scalar function of $\theta$ by the triple
+\[
+ \J(a)=(a,\dot a,\ddot a),\qquad
+ \dot a=\partial_\theta a,\quad\ddot a=\partial_\theta^2a.
+\]
+These are derivatives, not Taylor coefficients. Addition and subtraction are
+componentwise; constants have zero derivative components. Product, reciprocal,
+logarithm and exponential rules are
+\begin{align}
+ \J(ab)&=(ab,\dot a b+a\dot b,\ddot a b+2\dot a\dot b+a\ddot b),\\
+ \J(a^{-1})&=\left(a^{-1},-\dot a/a^2,
+                   2\dot a^2/a^3-\ddot a/a^2\right),\\
+ \J(\log a)&=\left(\log a,\dot a/a,
+                   \ddot a/a-(\dot a/a)^2\right),\\
+ \J(e^a)&=e^a(1,\dot a,\ddot a+\dot a^2).
+ \label{eq:jets}
+\end{align}
+All quotient operations below mean multiplication by the reciprocal triple.
+
+\subsection{Boundary triples}
+For $x=kb/\mu$, initialise $\J(k)=(k,-k,k)$ and $\J(x)=(x,-x,x)$.
+Writing $q=\log G=k\log x-x-\log\Gamma(k)$ gives
+\begin{align}
+ \dot q&=x-k\{\log x+1-\psi(k)\},\label{eq:qdot}\\
+ \ddot q&=-\dot q+k-k^2\psi_1(k).\label{eq:qddot}
+\end{align}
+Here both $x$ and $k$ vary with $\theta$. Treating the argument of the gamma
+CDF as fixed when differentiating shape would omit part of the derivative.
+
+Given $\J(\log A)$ from Sections~\ref{sec:series}--\ref{sec:cf}, form
+$\J(G/A)=\J[\exp(q-\log A)]$. Evaluate the polynomials in
+\eqref{eq:Bexplicit} using triples, construct $\J(R_r)$ using
+\eqref{eq:Ar}, and apply \eqref{eq:logderivs} using the product rule above.
+The output $\J(L_r)$ contains $\ell_{\mu^r}$,
+$\ell_{\mu^r\theta}$ and $\ell_{\mu^r\theta\theta}$.
+
+\subsection{Explicit mixed expressions for checking}
+The first two orders, written without triple notation, are
+\begin{align}
+ \dot L_1&=\dot R_1,& \ddot L_1&=\ddot R_1,\\
+ \dot L_2&=\dot R_2-2R_1\dot R_1,&
+ \ddot L_2&=\ddot R_2-2\{\dot R_1^2+R_1\ddot R_1\},\\
+ \dot L_3&=\dot R_3-3\{\dot R_1R_2+R_1\dot R_2\}
+                +6R_1^2\dot R_1.\nonumber
+\end{align}
+Only these mixed expressions are required by \code{Dd}; $L_4$ itself needs no
+dispersion derivative. The implementation carries a complete triple through
+the polynomial arithmetic for simplicity. No finite difference is used here.
+
+\newpage
+\section{Dispersion derivatives of gamma tails: lower-tail series}
+\label{sec:series}
+The incomplete-gamma expansion in \cite{dlmfseries} can be written
+\begin{equation}
+ P(k,x)=\frac{e^{q(x,k)}}{k}\sum_{j=0}^{\infty}T_j,
+ \quad T_0=1,\qquad T_j=T_{j-1}\frac{x}{k+j}.
+ \label{eq:series}
+\end{equation}
+The implementation uses this expansion for $x<k+1$. All terms are positive.
+At fixed observation bound and mean, $\dot x=-x$ and $\dot k=-k$.
+For the ratio $r_j=x/(k+j)$,
+\[
+ \partial_\theta\log r_j=-1+\frac{k}{k+j}=-\frac{j}{k+j},
+ \qquad
+ \partial_\theta^2\log r_j=-\frac{jk}{(k+j)^2}.
+\]
+Consequently an explicit derivative recurrence is
+\begin{align}
+ \dot r_j&=-r_j\frac{j}{k+j},\\
+ \ddot r_j&=r_j\frac{j(j-k)}{(k+j)^2},\\
+ \dot T_j&=\dot T_{j-1}r_j+T_{j-1}\dot r_j,\\
+ \ddot T_j&=\ddot T_{j-1}r_j+2\dot T_{j-1}\dot r_j+T_{j-1}\ddot r_j.
+\end{align}
+Initialise $\dot T_0=\ddot T_0=0$. Sum these sequences to obtain
+$S=\sum T_j$, $\dot S=\sum\dot T_j$, $\ddot S=\sum\ddot T_j$.
+Taking the logarithm in \eqref{eq:series} gives
+\begin{align}
+ \log P&=q-\log k+\log S,\\
+ \partial_\theta\log P&=\dot q+1+\dot S/S,\\
+ \partial_\theta^2\log P&=\ddot q+\ddot S/S-(\dot S/S)^2.
+ \label{eq:seriesderivs}
+\end{align}
+The $+1$ in the first derivative is from $-\log k=\theta$; there is no
+corresponding second-derivative term.
+
+\subsection{Implementation and convergence}
+The code computes the recurrence with the rules in \eqref{eq:jets} rather
+than maintaining separate hand-expanded recurrences. It stops when all three
+components of the new term satisfy
+\[
+ |\J(T_j)_m|<2\times10^{-14}\{1+|\J(S)_m|\},\quad m=0,1,2.
+\]
+There is a hard limit of 10,000 iterations with an error on nonconvergence.
+Convergence of the probability value alone is not sufficient for convergence
+of its derivatives.
+
+R's \code{pgamma(log.p = TRUE)} supplies the final log-probability value.
+The differentiated series supplies its first two dispersion derivatives.
+This preserves R's specialised tail evaluation without numerically
+perturbing the dispersion. Very large shapes near the transition region
+remain a regime to test beyond the present finite validation grid.
+
+\newpage
+\section{Dispersion derivatives of gamma tails: upper-tail fraction}
+\label{sec:cf}
+An equivalent contracted form of the upper incomplete-gamma continued
+fraction \cite{dlmfcf} is
+\begin{equation}
+ Q(k,x)=e^{q(x,k)}H(k,x),\quad
+ H=\cfrac{1}{b_0+\cfrac{a_1}{b_1+\cfrac{a_2}{b_2+\cdots}}},
+ \quad b_j=x+1-k+2j,\quad a_j=j(k-j).
+ \label{eq:cf}
+\end{equation}
+Use this representation for $x\geq k+1$. The triple inputs for its
+coefficients are particularly simple:
+\begin{equation}
+ \J(b_j)=(b_j,-x+k,x-k),\qquad
+ \J(a_j)=(a_j,-jk,jk).
+ \label{eq:cfinputs}
+\end{equation}
+
+\subsection{Differentiating the fraction evaluation}
+A multiplicative evaluation starts with
+\[
+ C_0=M,\quad D_0=b_0^{-1},\quad H_0=D_0,\qquad M=10^{300},
+\]
+where $M$ approximates an infinite initial $C_0$ and its derivative components
+are zero. For $j=1,2,\ldots$ compute
+\begin{align}
+ D_j&=(b_j+a_jD_{j-1})^{-1},\\
+ C_j&=b_j+a_j/C_{j-1},\\
+ \Delta_j&=C_jD_j,\\
+ H_j&=H_{j-1}\Delta_j.
+ \label{eq:cfalgorithm}
+\end{align}
+Replace each operation by its triple rule in \eqref{eq:jets}. This yields
+$H$, $\dot H$ and $\ddot H$, and hence
+\begin{align}
+ \log Q&=q+\log H,\\
+ \partial_\theta\log Q&=\dot q+\dot H/H,\\
+ \partial_\theta^2\log Q&=\ddot q+\ddot H/H-(\dot H/H)^2.
+ \label{eq:cfderivs}
+\end{align}
+The stopping rule checks $|\Delta_j-1|$, $|\dot\Delta_j|$ and
+$|\ddot\Delta_j|$ against $2\times10^{-14}$, with the same iteration limit
+as the series. Derivatives of a fraction that terminates in value at integer
+$k$ can still require further iterations: the derivative tests must remain.
+
+The upper-tail value is again supplied by \code{pgamma}, with
+\code{lower.tail = FALSE}. Derivatives are obtained from the differentiated
+fraction. A requested tail opposite to the directly evaluated tail is
+obtained by the log-difference rule on the next page.
+
+These expressions specify a numerical evaluation of analytic derivatives.
+They are not finite differences, but finite iteration and floating-point
+arithmetic still require numerical validation. No assertion of uniform
+accuracy over all positive shapes is made by the present implementation.
+
+\newpage
+\section{Stable interval probabilities and narrow intervals}
+\label{sec:narrow}
+Let $a=\log A_1$, $b=\log A_0$ with $A_1>A_0\geq0$ and define
+$z=\log(A_1-A_0)$. Evaluate
+\begin{equation}
+ z=a+\log\{-\operatorname{expm1}(b-a)\},\quad
+ r=e^{b-z},\quad d=\dot a-\dot b.
+\end{equation}
+Direct differentiation gives
+\begin{align}
+ \dot z&=\dot a+rd,\\
+ \ddot z&=\ddot a+r(\ddot a-\ddot b)-r(1+r)d^2.
+ \label{eq:logdiff}
+\end{align}
+This also computes a complement by setting $a=0$ with zero derivatives.
+At a tail endpoint having probability zero, use log value $-\infty$ and
+zero derivative components, so $r=0$.
+
+For a finite interval either subtract lower tails,
+$P(k,x_u)-P(k,x_l)$, or upper tails, $Q(k,x_l)-Q(k,x_u)$.
+The current implementation uses lower tails if $P(k,x_l)<1/2$, otherwise
+upper tails. This avoids subtracting two near-one probabilities in the far
+upper tail, although it cannot remove all cancellation for narrow intervals.
+
+\subsection{Integrate the density and its derivatives together}
+For $\delta=u-l$ small, substitute $y=l+\delta(v+1)/2$:
+\begin{equation}
+ A=\frac{\delta}{2}\int_{-1}^{1}f\{l+\delta(v+1)/2\}\dd v
+   \simeq\frac{\delta}{2}\sum_{j=1}^{16}\omega_j f(y_j).
+ \label{eq:quad}
+\end{equation}
+The code uses 16-point Gauss--Legendre quadrature when
+$0<l<u<\infty$, $\delta/l<10^{-4}$ and $k\delta/\mu<1$.
+This is a local numerical approximation, not a replacement likelihood model.
+
+For density derivatives define $C_0=1$ and
+\[
+ \partial_\mu^rf=f\mu^{-r}C_r(x,k),\qquad
+ C_{r+1}=(x-k-r)C_r-x\partial_x C_r.
+\]
+Thus $C_1=x-k$, $C_2=x^2-2(k+1)x+k(k+1)$, and
+\begin{align*}
+ C_3&=x^3-3(k+2)x^2+3(k+1)(k+2)x-k(k+1)(k+2),\\
+ C_4&=x^4-4(k+3)x^3+6(k+2)(k+3)x^2\\
+    &\hspace{9mm}-4(k+1)(k+2)(k+3)x+k(k+1)(k+2)(k+3).
+\end{align*}
+Integrate $f C_r/\mu^r$ with the same nodes and weights, divide by the
+integral of $f$, and use \eqref{eq:logderivs}. Carry all operations in
+$\theta$ triples. A common subtraction of the largest node log density
+prevents underflow; treat this numerical scaling constant as fixed within
+the derivative calculation. As $\delta\downarrow0$, log probability approaches
+$\log f\{(l+u)/2\}+\log\delta$ and its parameter derivatives approach those
+of an exact observation. This is a separate regression test.
+
+\newpage
+\section{Avoiding cancellation in far upper-tail derivatives}
+The boundary formula is algebraically correct but can be numerically poor
+far into the upper tail. For example, $R_4$ and $R_1^4$ can both have order
+$x^4$ while their combination in $L_4$ has order $x$. Subtracting these
+large quantities can destroy the fourth derivative. Working on the log
+probability scale alone does not resolve this cancellation.
+
+Repeated integration by parts gives the upper-tail expansion
+\begin{equation}
+ Q(k,x)\sim \frac{G(x,k)}{x}S(x,k),\qquad
+ S=\sum_{j\geq0}U_j,\quad U_0=1,\quad
+ U_j=U_{j-1}\frac{k-j}{x}.
+ \label{eq:upperexpansion}
+\end{equation}
+This is an asymptotic expansion; it must be truncated while the terms are
+small, not summed indefinitely. The code uses it only for
+$x>\max(100,5k)$ and requires convergence of all retained derivatives.
+Since $x=kb/\mu$, $U_j$ is proportional to $\mu^j$ when $k$ is fixed:
+\[
+ S_{\mu^r}=\mu^{-r}\sum_{j\geq r}
+ j(j-1)\cdots(j-r+1)U_j,\qquad r=1,\ldots,4.
+\]
+Evaluate these sums as $\theta$ triples, normalise by $S$, and use
+\eqref{eq:logderivs} to get derivatives of $\log S$. Then
+\begin{equation}
+ (\log Q)_{\mu^r}
+ =(-1)^r(r-1)!\,\mu^{-r}\{k-1-rx\}+(\log S)_{\mu^r}.
+ \label{eq:farmean}
+\end{equation}
+The dominant order-$x$ term is now explicit, and the remaining small
+series does not require cancellation of order-$x^4$ terms. Dispersion and
+mixed derivatives follow by carrying the same triples throughout.
+
+\subsection{Finite intervals wholly in the far upper tail}
+Write $L=\log Q(k,x_l)$, $U=\log Q(k,x_u)$, $\Delta=U-L$,
+$e=\exp\Delta$ and $F=1-e$. Then $\log A=L+\log F$.
+For $\Delta_r=\partial_\mu^r\Delta$,
+\begin{align*}
+ e_\mu&=e\Delta_1,\\
+ e_{\mu^2}&=e(\Delta_2+\Delta_1^2),\\
+ e_{\mu^3}&=e(\Delta_3+3\Delta_1\Delta_2+\Delta_1^3),\\
+ e_{\mu^4}&=e(\Delta_4+4\Delta_1\Delta_3+3\Delta_2^2
+                      +6\Delta_1^2\Delta_2+\Delta_1^4).
+\end{align*}
+Because $F_{\mu^r}=-e_{\mu^r}$, applying \eqref{eq:logderivs} to the ratios
+$-e_{\mu^r}/F$ supplies $(\log F)_{\mu^r}$. Add these to the derivatives of
+$L$ from \eqref{eq:farmean}. This calculation also uses triples for mixed
+derivatives. The narrow-interval quadrature takes precedence when its
+conditions hold. For $u=\infty$, $\log A=L$ directly.
+
+\newpage
+\section{Mapping the derivatives to the \texttt{mgcv} interface}
+The extended-family interface requires derivatives of deviance in $\mu$,
+not derivatives in $\eta$. For $r\geq1$ the saturated likelihood does not
+depend on the fitted mean, giving
+\[
+ D_{\mu^r\theta^s}=-2w\ell_{\mu^r\theta^s},\qquad
+ D_\theta=2w(\ell_{s,\theta}-\ell_\theta),\quad
+ D_{\theta\theta}=2w(\ell_{s,\theta\theta}-\ell_{\theta\theta}).
+\]
+The return fields of \code{Dd(y, mu, theta, wt, level)} are:
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+Level & Field & Derivative\\
+\midrule
+0 & \code{Dmu}, \code{Dmu2} & $D_\mu$, $D_{\mu\mu}$\\
+1 & \code{Dmu3}, \code{Dth} & $D_{\mu\mu\mu}$, $D_\theta$\\
+1 & \code{Dmuth}, \code{Dmu2th} & $D_{\mu\theta}$, $D_{\mu\mu\theta}$\\
+2 & \code{Dmu4}, \code{Dth2} & $D_{\mu\mu\mu\mu}$, $D_{\theta\theta}$\\
+2 & \code{Dmuth2}, \code{Dmu2th2} & $D_{\mu\theta\theta}$, $D_{\mu\mu\theta\theta}$\\
+2 & \code{Dmu3th} & $D_{\mu\mu\mu\theta}$\\
+\bottomrule
+\end{tabular}
+\end{center}
+Levels are cumulative. For exact data use the Gamma expected information:
+$\code{EDmu2}=2wk/\mu^2$ and $\code{EDmu2th}=-2wk/\mu^2$.
+For censored data use the working approximation
+$\code{EDmu2}=\max(0,D_{\mu\mu}+D_\mu/\mu)$ and, where positive,
+$\code{EDmu2th}=D_{\mu\mu\theta}+D_{\mu\theta}/\mu$ (zero otherwise).
+The latter uses non-negative observed curvature in $\eta$, not exact
+expected information. Using $D_{\mu\mu}$ alone can give negative working
+weights in \code{bam}, even when $D_{\eta\eta}>0$. Only the exact-data
+choice is required to recover Gamma's EDF and covariance conventions.
+
+The \code{ls} function returns $\sum_iw_i\ell_{s,i}$, its first two
+$\theta$ derivatives, and the per-observation first derivatives as
+\code{LSTH1}. The \code{aic} function returns $-2\sum_iw_i\ell_i$;
+\code{mgcv} adds the model complexity contribution. Zero weights contribute
+zero to all of these quantities.
+
+\subsection{Log-link conversion and checks}
+Since $\partial_\eta=\mu\partial_\mu$,
+\begin{align}
+ D_\eta&=\mu D_\mu,\\
+ D_{\eta\eta}&=\mu^2D_{\mu\mu}+\mu D_\mu,\\
+ D_{\eta^3}&=\mu^3D_{\mu^3}+3\mu^2D_{\mu^2}+\mu D_\mu,\\
+ D_{\eta^4}&=\mu^4D_{\mu^4}+6\mu^3D_{\mu^3}+7\mu^2D_{\mu^2}+\mu D_\mu.
+ \label{eq:link}
+\end{align}
+The same linear combinations hold after a $\theta$ derivative because
+$\mu$ is fixed in that derivative. The family supplies the $\mu$ derivatives;
+\code{mgcv} performs this conversion.
+
+For an exact observation, direct differentiation of
+$\ell=\text{constant}-k\eta-ky e^{-\eta}$ gives
+$\ell_\eta=x-k$, $\ell_{\eta^2}=-x$, $\ell_{\eta^3}=x$ and
+$\ell_{\eta^4}=-x$. These independently check \eqref{eq:link}.
+For uncensored data the fitted model matches an ordinary Gamma fit under
+ML or REML, including likelihood dispersion, coefficients and EDF. The
+extended-family smoothing parameter equals the Gamma smoothing parameter
+divided by $\phi$. Gamma stores its likelihood dispersion in
+\code{reml.scale}; \code{sig2} and \code{scale} use a separate Fletcher
+estimate by default. To compare covariance matrices and standard errors,
+rescale the ordinary Gamma covariance by \code{reml.scale / sig2}.
+The censored-family external scale stays at one, with dispersion in
+\code{family\$getTheta(TRUE)}.
+
+\newpage
+\section{Prediction: conditional mean and epsilon correction}
+\label{sec:prediction}
+The implemented response prediction is
+\[
+ \widehat\mu_0=g(\widehat{\bm\beta})
+  =\exp(\bm x_0^\top\widehat{\bm\beta}+o_0).
+\]
+This is already a plug-in estimate of the conditional arithmetic mean.
+There is no lognormal residual-variance adjustment. A different target is
+$\E\{g(\bm\beta)\mid\bm y,\widehat\phi,\widehat{\bm\lambda}\}$,
+which averages a nonlinear function over coefficient uncertainty.
+The epsilon approach of Thorson and Kristensen \cite{tk}, based on Tierney,
+Kass and Kadane \cite{tierney}, is relevant to this target.
+
+\subsection{Expansion at the penalised mode}
+Fix dispersion and smoothing parameters for this derivation. Define the
+negative log posterior, up to a constant, by
+\[
+ h(\bm\beta)=-\sum_iw_i\ell_i(\eta_i,\theta)
+            +\tfrac12\bm\beta^\top S\bm\beta.
+\]
+At its mode let $V=\{h''(\widehat{\bm\beta})\}^{-1}$,
+$T=h'''(\widehat{\bm\beta})$ and $Q=h''''(\widehat{\bm\beta})$.
+Unlike Miller's per-observation $h$ convention, $h$ here is the full
+negative log posterior, so there are no explicit factors of sample size.
+The fully exponential Laplace expansion gives
+\begin{equation}
+ \E(g\mid\bm y)\simeq
+ g+\tfrac12\tr(Vg'')-\tfrac12 T[V,Vg'].
+ \label{eq:epsilon}
+\end{equation}
+In components $T[V,Vg']=\sum_{abc}T_{abc}V_{ab}(Vg')_c$.
+The last term corrects for departure from a Gaussian posterior and must not
+be dropped merely because a Gaussian covariance estimate is available.
+
+For $g=e^{\bm x_0^\top\bm\beta+o_0}$,
+$g'=g\bm x_0$ and $g''=g\bm x_0\bm x_0^\top$. Also
+\[
+ T=\sum_it_i\bm x_i^{\otimes3},\quad
+ Q=\sum_iq_i\bm x_i^{\otimes4},\quad
+ t_i=\tfrac12D_{i,\eta^3},\quad q_i=\tfrac12D_{i,\eta^4}.
+\]
+The quadratic penalty has no third or fourth derivative. Set
+$v_0=\bm x_0^\top V\bm x_0$,
+$d_i=\bm x_i^\top V\bm x_i$ and $e_i=\bm x_i^\top V\bm x_0$.
+Then \eqref{eq:epsilon} reduces to
+\begin{equation}
+ \boxed{\E(g\mid\bm y)\simeq
+ g\left\{1+\tfrac12v_0-\tfrac12\sum_it_id_ie_i\right\}.}
+ \label{eq:epsiloncontract}
+\end{equation}
+For exact gamma observations $t_i=-w_i k y_i/\mu_i$ and
+$q_i=w_i k y_i/\mu_i$. Therefore \emph{all observations}, not just censored
+ones, contribute to the correction. This prevents direct reuse of the
+censored-row-only calculation for the lognormal family.
+
+\newpage
+\section{Checking the prediction expansion and its variance}
+\subsection{An exact intercept-only check}
+Consider $n$ uncensored observations, unit weights, fixed $k$, and a flat
+prior on $\eta=\log\mu$. Write $a=nk$ and $b=k\sum_i y_i$.
+The likelihood in $\eta$ is proportional to $\exp(-a\eta-be^{-\eta})$.
+The change of variables $\mu=e^\eta$ shows
+\[
+ \mu\mid\bm y\sim\operatorname{InverseGamma}(a,b),\qquad
+ \E(\mu\mid\bm y)=\frac{b}{a-1}\quad(a>1).
+\]
+At the mode in $\eta$, $g=b/a=\bar y$, $V=1/a$, $T=-a$ and $Q=a$.
+Equation~\eqref{eq:epsilon} therefore yields
+\[
+ g+\frac{g}{2a}+\frac{g}{2a}=g(1+1/a),
+\]
+which agrees with the expansion of $b/(a-1)$ to this order. Retaining only
+the curvature term gives $g(1+1/(2a))$ and misses half of the leading
+correction. The exact posterior exists for $a>0$, but its mean requires
+$a>1$; a local expansion cannot guarantee existence of posterior moments.
+
+\subsection{Variance expression to be checked before implementation}
+For a scalar prediction define
+\[
+ \bm a=Vg',\quad B=g''-T[\bm a],\quad
+ \bm b=V\{2g''\bm a-T[\bm a,\bm a]\}.
+\]
+Here $T[\bm a]$ is a matrix, $T[\bm a,\bm a]$ a vector, and
+$Q[\bm a,\bm a]$ a matrix. Differentiating the log determinant of the
+perturbed Hessian in the fully exponential approximation gives
+\begin{equation}
+ \Var(g\mid\bm y)\simeq
+ g'^\top Vg'
+ +\tfrac12\tr\{(VB)^2\}
+ -\tfrac12\tr\left[V\{Q[\bm a,\bm a]+T[\bm b]-2g'''[\bm a]\}\right].
+ \label{eq:var}
+\end{equation}
+For the intercept-only check above, this equals
+$g^2\{a^{-1}+4a^{-2}\}$, matching the expansion of the exact variance
+$b^2/\{(a-1)^2(a-2)\}$ for $a>2$.
+
+\subsection{Scope of the prediction result}
+Equations~\eqref{eq:epsiloncontract} and \eqref{eq:var} are derivations for a
+future prediction option, not a currently implemented prediction method.
+They condition on estimated dispersion and smoothing parameters. Joint
+integration over these quantities requires corresponding joint derivatives
+and covariance information. Prediction for a \emph{new} random-effect level
+also introduces a different integral and is not supplied by these formulae
+alone.
+
+The code presently follows ordinary \code{Gamma(link = "log")} prediction
+semantics. Posterior-mean prediction, frequentist bias correction of fixed
+parameters, and marginal prediction over new random effects should not be
+presented as interchangeable targets. Numerical integration of small models
+and simulation should precede exposing an epsilon-corrected option.
+
+\newpage
+\section{Verification and reviewer guide}
+The companion regression checks are in \code{tests/cgamma.R}. They cover:
+\begin{enumerate}
+ \item First through fourth mean derivatives and every required mixed
+ derivative, compared with Richardson differences of lower-order quantities.
+ Exact, left-, right-, ordinary interval and narrow interval responses are
+ included, together with support endpoints and zero weights.
+ \item Pure dispersion derivatives of log tails, compared with independently
+ perturbed calls to base R's \code{pgamma}. The shape grid is
+ $0.03,0.2,1,2,10,100,1000$ and the bound-to-mean ratio grid is
+ $0.001,0.1,0.9,1,1.1,2,10,100$, for both tails. Independent numerical integrals of the density score and its
+ derivative also check dispersion derivatives for each censoring direction.
+ Far upper-tail mean and mixed derivatives are checked separately.
+ \item Saturated-likelihood derivatives and the exact likelihood identity
+ \eqref{eq:normalisation}; gamma density and deviance formulae in the
+ uncensored case.
+ \item The narrow-interval limit, including derivatives; an ordinary gamma
+ smooth fit at fixed and estimated dispersion (ML and REML, vector and
+ two-column exact responses); and a censored regression fit against
+ independent direct likelihood optimisation.
+ \item Estimated-dispersion smooth fits, offsets, response predictions,
+ preservation of censoring when subsetting, optimised null deviance, both
+ \code{bam} fitting paths, and input validation.
+\end{enumerate}
+These checks detect algebraic and implementation errors; they are not a
+proof of uniform accuracy or a large simulation study of estimator behaviour.
+Tail calculations at more extreme shapes, censoring-driven weak
+identifiability, and epsilon-corrected predictions deserve further study.
+
+For review, the most consequential checks are the sign change
+$\theta=\log\phi=-\log k$; the simultaneous change of $x$ and $k$ in
+\eqref{eq:qdot}; the saturated interval mean in \eqref{eq:musat}; the
+boundary recurrence \eqref{eq:Brec}; and the distinction between posterior
+mean and plug-in prediction in Section~\ref{sec:prediction}.
+
+\begin{thebibliography}{9}\small
+\bibitem{miller} Miller, D. L. (2026).
+\emph{Modelling censored log-normal responses in generalized additive models}.
+28 August 2026. \code{inlaws}, \code{inst/maths/clogn/clogn.pdf}.
+Especially Section 3 and Appendix equation (9).
+\bibitem{dlmfseries} NIST Digital Library of Mathematical Functions.
+Section 8.7, especially equation 8.7.1.
+\url{https://dlmf.nist.gov/8.7}.
+\bibitem{dlmfcf} NIST Digital Library of Mathematical Functions.
+Section 8.9, continued fractions for incomplete gamma functions.
+\url{https://dlmf.nist.gov/8.9}.
+\bibitem{tk} Thorson, J. T. and Kristensen, K. (2016).
+Implementing a generic method for bias correction in statistical models using
+random effects, with spatial and population dynamics examples.
+\emph{Fisheries Research}, 175, 66--74.
+\href{https://doi.org/10.1016/j.fishres.2015.11.016}{doi:10.1016/j.fishres.2015.11.016}.
+\bibitem{tierney} Tierney, L., Kass, R. E. and Kadane, J. B. (1989).
+Fully exponential Laplace approximations to expectations and variances of
+nonpositive functions. \emph{JASA}, 84(407), 710--716.
+\bibitem{wood} Wood, S. N., Pya, N. and S\"afken, B. (2016).
+Smoothing parameter and model selection for general smooth models.
+\emph{JASA}, 111(516), 1548--1563.
+\href{https://doi.org/10.1080/01621459.2016.1180986}{doi:10.1080/01621459.2016.1180986}.
+\end{thebibliography}
+\end{document}
