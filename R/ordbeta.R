@@ -244,7 +244,7 @@ ordbeta <- function(link = "logit", start = NULL) {
   }
   attr(preinitialize, "needG") <- TRUE
   lk <- stats::make.link("logit")
-  structure(c(list(family = "Ordered beta", link = "logit", ordbeta = TRUE,
+  family <- structure(c(list(family = "Ordered beta", link = "logit", ordbeta = TRUE,
                    mode = mode, n.theta = nt, ini.theta = initial, scale = 1, no.r.sq = TRUE,
                    getTheta = getTheta, putTheta = putTheta, dev.resids = dev.resids,
                    Dd = Dd, ls = ls, aic = aic, variance = variance,
@@ -254,6 +254,7 @@ ordbeta <- function(link = "logit", start = NULL) {
                    validmu = function(mu) all(is.finite(mu) & mu > 0 & mu < 1)),
               lk[c("linkfun", "linkinv", "mu.eta", "valideta")]),
             class = c("extended.family", "family"))
+  .inlaws_diagnostic_family(family, "ordbeta")
 }
 
 .ordbeta_components <- function(eta, par) {

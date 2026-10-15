@@ -64,7 +64,7 @@ zanb <- function(link = list("log", "logit", "log")) .zinb_family(link, TRUE)
   linfo[[2L]]$linkinv <- stats::plogis
   linfo[[2L]]$mu.eta <- function(x) stats::plogis(x) * stats::plogis(-x)
   name <- if (hurdle) "zanb" else "zinb"
-  structure(
+  family <- structure(
     list(
       family = name, link = unlist(link), nlp = 3L, hurdle = hurdle,
       linfo = linfo, tri = mgcv::trind.generator(3), ll = .zinb_ll,
@@ -90,6 +90,7 @@ zanb <- function(link = list("log", "logit", "log")) .zinb_family(link, TRUE)
     ),
     class = c("general.family", "extended.family", "family")
   )
+  .inlaws_diagnostic_family(family, "mixture")
 }
 
 # Multivariate Taylor coefficients (derivative / multi-index factorial).

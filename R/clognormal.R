@@ -199,6 +199,9 @@
 #'   at one; a positive value fixes it; a negative value specifies the negative
 #'   of its starting value for estimation. Zero is not allowed.
 #' @param link Mean link; currently only `"log"` is supported.
+#' @param observe Optional function applying a known, row-independent observation
+#'   rule to simulated responses for diagnostic references. See
+#'   [censoring_process()] for fixed censoring limits.
 #' @details A positive numeric vector specifies uncensored observations. For
 #'   censoring, supply a two-column numeric matrix. Equal columns denote an
 #'   exact observation; `(lower, upper)` denotes a finite interval;
@@ -249,7 +252,7 @@
 #' fit <- mgcv::gam(y ~ s(x), data = dat, family = clognormal(), method = "REML")
 #' head(predict(fit, type = "response"))
 #' fit$family$getTheta(TRUE)
-clognormal <- function(theta = NULL, link = "log") {
+clognormal <- function(theta = NULL, link = "log", observe = NULL) {
   if (!identical(link, "log")) stop('clognormal supports only link = "log"')
   if (!is.null(theta) && (!is.numeric(theta) || length(theta) != 1L ||
       !is.finite(theta) || theta == 0)) stop("theta must be NULL or a finite non-zero number")
@@ -332,7 +335,7 @@ clognormal <- function(theta = NULL, link = "log") {
     ans
   }
   lk <- stats::make.link(link)
-  structure(c(list(family = "clognormal", link = link), lk[c("linkfun", "linkinv", "mu.eta", "valideta")],
+  family <- structure(c(list(family = "clognormal", link = link), lk[c("linkfun", "linkinv", "mu.eta", "valideta")],
     list(validmu = function(mu) all(is.finite(mu) & mu > 0),
       dev.resids = dev.resids, Dd = Dd, ls = ls, aic = aic,
       initialize = initialize, prepare.response = .clnormal_response,
@@ -348,4 +351,5 @@ clognormal <- function(theta = NULL, link = "log") {
         stats::plnorm(q, log(mu) - getTheta(TRUE)^2/2, getTheta(TRUE),
                       lower.tail = lower.tail, log.p = logp))),
     class = c("extended.family", "family"))
+  .inlaws_diagnostic_family(family, "clognormal", observe)
 }

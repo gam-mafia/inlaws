@@ -90,7 +90,7 @@ gpd <- function(link = list("log", "logshift")) {
   scale$d2link <- function(mu) -1 / mu^2
   scale$d3link <- function(mu) 2 / mu^3
   scale$d4link <- function(mu) -6 / mu^4
-  structure(list(
+  family <- structure(list(
     family = "gpd", link = unlist(link), nlp = 2L,
     linfo = list(scale, shape), tri = mgcv::trind.generator(2),
     ll = .gpd_ll, initialize.coef = .gpd_start,
@@ -107,6 +107,7 @@ gpd <- function(link = list("log", "logshift")) {
     d2link = 1, d3link = 1, d4link = 1, ls = 1,
     available.derivs = 2, discrete.ok = FALSE
   ), class = c("general.family", "extended.family", "family"))
+  .inlaws_diagnostic_family(family, "gpd")
 }
 
 # H = log(1 + xi * t) / xi, with H(t, 0) = t.

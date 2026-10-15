@@ -175,7 +175,7 @@ pig <- function(theta = NULL, link = "log") {
          deviance = sum(family$dev.resids(y, fitted, prior.weights)))
   }
   lk <- stats::make.link("log")
-  structure(list(family = "Poisson inverse Gaussian", link = "log",
+  family <- structure(list(family = "Poisson inverse Gaussian", link = "log",
     linkfun = lk$linkfun, linkinv = lk$linkinv, mu.eta = lk$mu.eta,
     valideta = lk$valideta, validmu = function(mu) all(is.finite(mu) & mu > 0),
     dev.resids = dev.resids, Dd = Dd, ls = ls, aic = aic,
@@ -183,6 +183,7 @@ pig <- function(theta = NULL, link = "log") {
     variance = variance, n.theta = as.integer(!fixed), ini.theta = initial,
     getTheta = getTheta, putTheta = putTheta, scale = 1, rd = rd, cdf = cdf, qf = qf),
     class = c("pig.family", "extended.family", "family"))
+  .inlaws_diagnostic_family(family, "pig")
 }
 
 # Clone at the public mgcv link-fixing dispatch, before bam retains separate

@@ -32,3 +32,13 @@
 
 * Replaced the statmod dependency with internally generated and cached
   Gauss-Legendre quadrature rules for the censored gamma and log-normal families.
+
+* All family constructors now supply native `gratia_diagnostics()` factories
+  without requiring gratia. They bind fitted parameters to response moments,
+  count left limits, ordinal and ordered-beta masses, censoring intervals, and
+  beta-binomial count functions. Multivariate families provide component moments
+  and marginal CDFs with joint simulation. Heavy-tail families report undefined
+  moments explicitly.
+* Censored constructors accept a known `observe` function for simulated
+  diagnostic references. `censoring_process()` implements shared scalar limits;
+  interval PIT and quantile checks remain available when the rule is unknown.

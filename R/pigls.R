@@ -66,7 +66,7 @@ pigls <- function(link = list("log", "log")) {
     object$null.deviance <- object$family$null.deviance(
       object, G$offset, intercept = attr(G$pterms[[1]], "intercept"))
   })
-  structure(list(family = "pigls", link = unlist(link), nlp = 2L,
+  family <- structure(list(family = "pigls", link = unlist(link), nlp = 2L,
     linfo = linfo, tri = mgcv::trind.generator(2), ll = .pigls_ll,
     ncv = .pigls_ncv, initialize = initialize, init = .pigls_init,
     postproc = postproc, residuals = .pigls_residuals, predict = .pigls_predict,
@@ -92,6 +92,7 @@ pigls <- function(link = list("log", "log")) {
     d2link = 1, d3link = 1, d4link = 1, ls = 1,
     no.r.sq = TRUE, available.derivs = 2L, discrete.ok = FALSE),
     class = c("general.family", "extended.family", "family"))
+  .inlaws_diagnostic_family(family, "pigls")
 }
 
 .pigls_eta <- function(X, beta, offset) {

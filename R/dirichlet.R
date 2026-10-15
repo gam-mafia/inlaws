@@ -155,7 +155,7 @@ dirichlet <- function(K = 1) {
     z / rowSums(z)
   }
 
-  structure(list(family = "dirichlet", link = NULL, nlp = q, ll = ll,
+  family <- structure(list(family = "dirichlet", link = NULL, nlp = q, ll = ll,
                  linfo = replicate(q, stats::make.link("identity"), simplify = FALSE),
                  tri = tri, initialize = initialize, initial = .dirichlet_initial,
                  preinitialize = preinitialize,
@@ -168,6 +168,7 @@ dirichlet <- function(K = 1) {
                  d2link = 1, d3link = 1, d4link = 1, ls = 1,
                  available.derivs = 2, discrete.ok = FALSE),
             class = c("general.family", "extended.family", "family"))
+  .inlaws_diagnostic_family(family, "dirichlet")
 }
 
 .dirichlet_eta <- function(X, beta, offset) {

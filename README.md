@@ -86,3 +86,25 @@ Build the documentation locally with `pkgdown::build_site()` (requires
 a `pkgdown-preview` artifact; pushes to `main` build and deploy the site to
 GitHub Pages. The repository's Pages publishing source must be **GitHub
 Actions**. All workflows can also be run manually from the Actions tab.
+
+## Fitted-model diagnostics
+
+Every family supplies a `gratia_diagnostics(mu, wt, scale, y, eta)` function
+for gratia's extensible diagnostic interface. It describes the complete response
+distribution at fitted parameters, including response moments and count or
+endpoint masses. Multivariate families retain response-column dependence in
+joint draws. Constructing and fitting inlaws families does not require gratia.
+See `?family_diagnostics` for moment conditions and componentwise checks.
+
+Censored families use observed intervals for PIT and quantile residuals.
+Traditional simulated QQ or worm references need the known observation rule:
+
+```r
+library("inlaws")
+f <- cgamma(theta = 0.6, observe = censoring_process(lower = 0.4, upper = 4))
+```
+
+The limits in `censoring_process()` are scalars shared across observations, so
+they remain aligned after subsetting and missing-row removal. Unknown censoring
+rules cannot be recovered from realised exact observations. Public response
+samplers continue to draw the uncensored response distribution.

@@ -201,7 +201,7 @@ cumulative_link <- function(R = NULL,
     d <- object$family$dev.resids(object$y, object$fitted.values, object$prior.weights)
     attr(d, "sign") * sqrt(pmax(0, d))
   }
-  fam
+  .inlaws_diagnostic_family(fam, "cumulative_link")
 }
 
 .ocat_recycle <- function(x, mu) {

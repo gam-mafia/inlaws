@@ -4,7 +4,7 @@
 \alias{cgamma}
 \title{Censored gamma distribution for generalized additive models}
 \usage{
-cgamma(theta = NULL, link = "log")
+cgamma(theta = NULL, link = "log", observe = NULL)
 }
 \arguments{
 \item{theta}{Dispersion parameter, the reciprocal of gamma shape. \code{NULL} or
@@ -12,6 +12,10 @@ zero estimates dispersion starting at one; a positive value fixes it;
 a negative value estimates it starting at \code{abs(theta)}.}
 
 \item{link}{Only \code{"log"} is supported.}
+
+\item{observe}{Optional function applying a known, row-independent observation
+rule to simulated responses for diagnostic references. See
+\code{\link[=censoring_process]{censoring_process()}} for fixed censoring limits.}
 }
 \value{
 An object of class \code{extended.family} and \code{family} for \link[mgcv:gam]{mgcv::gam}

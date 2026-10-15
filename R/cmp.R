@@ -216,7 +216,7 @@ cmp <- function(theta = NULL, link = "log", control = list()) {
     list(null.deviance = opt$objective)
   }
   lk <- stats::make.link("log")
-  structure(list(family = "Conway-Maxwell-Poisson", link = "log",
+  family <- structure(list(family = "Conway-Maxwell-Poisson", link = "log",
     linkfun = lk$linkfun, linkinv = lk$linkinv, mu.eta = lk$mu.eta,
     valideta = lk$valideta, validmu = function(mu) all(is.finite(mu) & mu > 0),
     dev.resids = dev.resids, Dd = Dd, ls = ls, aic = aic,
@@ -225,4 +225,5 @@ cmp <- function(theta = NULL, link = "log", control = list()) {
     n.theta = as.integer(!fixed), ini.theta = .Theta, getTheta = getTheta,
     putTheta = putTheta, scale = 1, rd = rd, qf = qf, cdf = cdf),
     class = c("extended.family", "family"))
+  .inlaws_diagnostic_family(family, "cmp")
 }

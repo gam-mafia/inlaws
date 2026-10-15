@@ -72,7 +72,7 @@ betabinomial <- function(link = list("logit", "log")) {
   linfo[[1L]]$linkinv <- stats::plogis
   linfo[[1L]]$mu.eta <- function(eta) stats::plogis(eta) * stats::plogis(-eta)
   linfo[[2L]]$linkinv <- linfo[[2L]]$mu.eta <- function(eta) exp(eta)
-  structure(list(family = "betabinomial", link = unlist(link), nlp = 2L,
+  family <- structure(list(family = "betabinomial", link = unlist(link), nlp = 2L,
     linfo = linfo, tri = mgcv::trind.generator(2), ll = .bb_ll,
     preinitialize = .bb_preinitialize,
     initialize = expression({
@@ -94,6 +94,7 @@ betabinomial <- function(link = list("logit", "log")) {
     d2link = 1, d3link = 1, d4link = 1, ls = 1,
     available.derivs = 2L, discrete.ok = FALSE),
     class = c("general.family", "extended.family", "family"))
+  .inlaws_diagnostic_family(family, "betabinomial")
 }
 
 .bb_preinitialize <- function(G) {
@@ -125,6 +126,7 @@ betabinomial <- function(link = list("logit", "log")) {
     stop("betabinomial cannot fit all-failure or all-success informative responses")
   family <- G$family
   family$trials <- m
+  family <- .inlaws_diagnostic_family(family, "betabinomial")
   # A scalar success-count response avoids mgcv's length(matrix) assumptions.
   # Keep totals in a per-fit family copy, never in shared mutable state.
   list(y = y, w = wt, family = family, offxset = G$offset)

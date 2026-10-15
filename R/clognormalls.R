@@ -7,6 +7,9 @@
 #' @param link Two links, for the arithmetic mean and log-response standard
 #'   deviation respectively. Both must be `"log"`.
 #' @return A `general.family` object for [mgcv::gam()].
+#' @param observe Optional function applying a known, row-independent observation
+#'   rule to simulated responses for diagnostic references. See
+#'   [censoring_process()] for fixed censoring limits.
 #' @details Supply a list of two formulae: the first specifies the response
 #'   and mean predictor; the second is one-sided and specifies the scale
 #'   predictor. Both can contain offsets. The model is
@@ -63,7 +66,7 @@
 #' fit <- mgcv::gam(list(y ~ s(x, k = 7), ~ s(z, k = 5)), data = dat,
 #'                  family = clognormalls(), method = "REML")
 #' head(predict(fit, type = "response"))
-clognormalls <- function(link = list("log", "log")) {
+clognormalls <- function(link = list("log", "log"), observe = NULL) {
   if (length(link) != 2L || !all(vapply(link, function(x)
       is.character(x) && length(x) == 1L && !is.na(x) && x == "log", logical(1))))
     stop('clognormalls requires two "log" links')
@@ -82,7 +85,7 @@ clognormalls <- function(link = list("log", "log")) {
     colnames(object$fitted.values) <- c("mu", "sigma")
     object$null.deviance <- object$family$null.deviance(object, G$offset)
   })
-  structure(list(family = "clognormalls", link = unlist(link), nlp = 2L,
+  family <- structure(list(family = "clognormalls", link = unlist(link), nlp = 2L,
     linfo = linfo, tri = mgcv::trind.generator(2), ll = .clnormalls_ll,
     ncv = .clnormalls_ncv, initialize = initialize, init = .clnormalls_init,
     prepare.response = .clnormal_response,
@@ -103,6 +106,7 @@ clognormalls <- function(link = list("log", "log")) {
     d2link = 1, d3link = 1, d4link = 1, ls = 1, scale = 1,
     no.r.sq = TRUE, available.derivs = 2L, discrete.ok = FALSE),
     class = c("general.family", "extended.family", "family"))
+  .inlaws_diagnostic_family(family, "clognormalls", observe)
 }
 
 .clnormalls_ll <- function(y, X, coef, wt, family, offset = NULL, deriv = 0,

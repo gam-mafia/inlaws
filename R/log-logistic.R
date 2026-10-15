@@ -151,7 +151,7 @@ log_logistic <- function(theta = NULL, link = "log") {
   }
 
   lk <- stats::make.link(link)
-  structure(c(list(family = "log_logistic", link = link), lk[c("linkfun", "linkinv", "mu.eta", "valideta")],
+  family <- structure(c(list(family = "log_logistic", link = link), lk[c("linkfun", "linkinv", "mu.eta", "valideta")],
     list(validmu = function(mu) all(is.finite(mu) & mu > 0),
       dev.resids = dev.resids, Dd = Dd, ls = ls, aic = aic,
       initialize = initialize, prepare.response = .llog_response,
@@ -166,6 +166,7 @@ log_logistic <- function(theta = NULL, link = "log") {
       cdf = function(q, mu, wt = 1, scale = 1, logp = FALSE, lower.tail = TRUE)
         .llog_cdf(q, mu, getTheta(TRUE), logp, lower.tail))),
     class = c("log_logistic.family", "extended.family", "family"))
+  .inlaws_diagnostic_family(family, "log_logistic")
 }
 
 # Clone before bam captures the family, as for pig.family.

@@ -4,7 +4,7 @@
 \alias{clognormal}
 \title{Censored lognormal family with an arithmetic mean predictor}
 \usage{
-clognormal(theta = NULL, link = "log")
+clognormal(theta = NULL, link = "log", observe = NULL)
 }
 \arguments{
 \item{theta}{Log-response standard deviation: \code{NULL} estimates it starting
@@ -12,6 +12,10 @@ at one; a positive value fixes it; a negative value specifies the negative
 of its starting value for estimation. Zero is not allowed.}
 
 \item{link}{Mean link; currently only \code{"log"} is supported.}
+
+\item{observe}{Optional function applying a known, row-independent observation
+rule to simulated responses for diagnostic references. See
+\code{\link[=censoring_process]{censoring_process()}} for fixed censoring limits.}
 }
 \value{
 An object of class \code{c("extended.family", "family")}.

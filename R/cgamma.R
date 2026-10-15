@@ -358,6 +358,9 @@
 #'   a negative value estimates it starting at `abs(theta)`.
 #' @param link Only `"log"` is supported.
 #'
+#' @param observe Optional function applying a known, row-independent observation
+#'   rule to simulated responses for diagnostic references. See
+#'   [censoring_process()] for fixed censoring limits.
 #' @details
 #' The conditional mean is `mu = exp(eta)` and variance is `theta * mu^2`.
 #' The gamma shape is `1 / theta` and scale is `mu * theta`. Dispersion is
@@ -414,7 +417,7 @@
 #'                  family = cgamma(), method = "REML")
 #' fit$family$getTheta(TRUE) # estimated dispersion; shape is its reciprocal
 #' predict(fit, type = "response")
-cgamma <- function(theta = NULL, link = "log") {
+cgamma <- function(theta = NULL, link = "log", observe = NULL) {
   if (!identical(link, "log")) stop("cgamma supports only the log link")
   if (!is.null(theta) && (!is.numeric(theta) || length(theta) != 1L ||
                          !is.finite(theta))) {
@@ -526,7 +529,7 @@ cgamma <- function(theta = NULL, link = "log") {
          family = paste0("Censored Gamma(dispersion = ",
                          signif(family$getTheta(TRUE), 4), ")"))
   }
-  structure(list(family = "Censored Gamma", link = "log",
+  family <- structure(list(family = "Censored Gamma", link = "log",
                  linkfun = linkobj$linkfun, linkinv = linkobj$linkinv,
                  mu.eta = linkobj$mu.eta, valideta = linkobj$valideta,
                  validmu = function(mu) all(is.finite(mu) & mu > 0),
@@ -539,4 +542,5 @@ cgamma <- function(theta = NULL, link = "log") {
                  n.theta = as.integer(estimate), ini.theta = initial,
                  scale = 1, no.r.sq = TRUE),
             class = c("extended.family", "family"))
+  .inlaws_diagnostic_family(family, "cgamma", observe)
 }

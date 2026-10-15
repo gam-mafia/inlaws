@@ -4,11 +4,15 @@
 \alias{clognormalls}
 \title{Censored lognormal mean and scale family}
 \usage{
-clognormalls(link = list("log", "log"))
+clognormalls(link = list("log", "log"), observe = NULL)
 }
 \arguments{
 \item{link}{Two links, for the arithmetic mean and log-response standard
 deviation respectively. Both must be \code{"log"}.}
+
+\item{observe}{Optional function applying a known, row-independent observation
+rule to simulated responses for diagnostic references. See
+\code{\link[=censoring_process]{censoring_process()}} for fixed censoring limits.}
 }
 \value{
 A \code{general.family} object for \code{\link[mgcv:gam]{mgcv::gam()}}.

@@ -72,7 +72,7 @@ nbls <- function(link = list("log", "log")) {
     colnames(object$fitted.values) <- c("mu", "theta")
     object$null.deviance <- object$family$null.deviance(object, G$offset)
   })
-  structure(list(family = "nbls", link = unlist(link), nlp = 2L,
+  family <- structure(list(family = "nbls", link = unlist(link), nlp = 2L,
     linfo = linfo, tri = mgcv::trind.generator(2), ll = .nbls_ll,
     # mgcv 1.9-3 passes G$offxset (a typo) to its general-family EFS fitter.
     # Its supported preinitialize hook can supply this alias without changing
@@ -96,6 +96,7 @@ nbls <- function(link = list("log", "log")) {
     d2link = 1, d3link = 1, d4link = 1, ls = 1,
     available.derivs = 2L, discrete.ok = FALSE),
     class = c("general.family", "extended.family", "family"))
+  .inlaws_diagnostic_family(family, "nbls")
 }
 
 # Pure theta derivatives. In the Poisson limit, evaluate a convergent series

@@ -171,7 +171,7 @@ gpoisson <- function(theta = NULL, link = "log") {
     list(null.deviance = null)
   }
   lk <- stats::make.link("log")
-  structure(list(family = "Generalized Poisson", link = "log",
+  family <- structure(list(family = "Generalized Poisson", link = "log",
     linkfun = lk$linkfun, linkinv = lk$linkinv, mu.eta = lk$mu.eta,
     valideta = lk$valideta, validmu = function(mu) all(is.finite(mu) & mu > 0),
     dev.resids = dev.resids, Dd = Dd, ls = ls, aic = aic,
@@ -179,4 +179,5 @@ gpoisson <- function(theta = NULL, link = "log") {
     variance = variance, n.theta = as.integer(!fixed), ini.theta = if (poisson) numeric(0) else initial,
     getTheta = getTheta, putTheta = putTheta, scale = 1, rd = rd, cdf = cdf, qf = qf),
     class = c("extended.family", "family"))
+  .inlaws_diagnostic_family(family, "gpoisson")
 }

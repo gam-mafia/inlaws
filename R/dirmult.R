@@ -240,7 +240,7 @@ dirmult <- function(K=1) {
   for (j in seq_len(C)) for (k in j:C) {
     h <- h+1L; i2[j,k] <- i2[k,j] <- h
   }
-  structure(list(family="dirmult",nlp=C,link=rep("identity",C),linfo=linfo,
+  family <- structure(list(family="dirmult",nlp=C,link=rep("identity",C),linfo=linfo,
       ll=ll,initialize=initialize,preinitialize=preinitialize,validate=validate,
       postproc=postproc,predict=predict,residuals=residuals,
       initial.ll=function(y,eta,wt) .dirmult_deriv(y,eta,wt,FALSE)$l,
@@ -248,4 +248,5 @@ dirmult <- function(K=1) {
       tri=list(i2=i2),available.derivs=0,
       d2link=1,d3link=1,d4link=1,ls=1,discrete.ok=FALSE),
       class=c("general.family","extended.family","family"))
+  .inlaws_diagnostic_family(family, "dirmult")
 }
