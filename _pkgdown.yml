@@ -37,6 +37,10 @@ reference:
     contents:
       - dirichlet
       - dirmult
+  - title: Model diagnostics
+    contents:
+      - family_diagnostics
+      - censoring_process
   - title: Package overview
     contents:
       - inlaws-package

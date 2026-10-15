@@ -8,3 +8,10 @@ rather than carrying them into the new task.
 If it is unclear whether a request belongs to the current task, or which branch
 or worktree should be used, ask the user to confirm how to proceed before
 starting the new work.
+
+# Maintaining the pkgdown reference index
+
+When adding documentation topics, add them to the manually curated reference
+index under `reference:` in `_pkgdown.yml`. Keep the index up to date when topics
+are renamed or removed. Topics deliberately marked as internal do not need an
+index entry.
