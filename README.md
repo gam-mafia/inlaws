@@ -1,14 +1,24 @@
 # inlaws <img src="man/figures/logo.png" align="right" height="160" alt="inlaws hex sticker with a family of three distribution characters" />
 
+[![Lifecycle: experimental](man/figures/lifecycle-experimental.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
 [![R CMD check](https://github.com/gam-mafia/inlaws/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/gam-mafia/inlaws/actions/workflows/R-CMD-check.yaml)
 [![Test coverage](https://github.com/gam-mafia/inlaws/actions/workflows/test-coverage.yaml/badge.svg)](https://github.com/gam-mafia/inlaws/actions/workflows/test-coverage.yaml)
 [![pkgdown](https://github.com/gam-mafia/inlaws/actions/workflows/pkgdown.yaml/badge.svg)](https://github.com/gam-mafia/inlaws/actions/workflows/pkgdown.yaml)
 
 Documentation: <https://gam-mafia.github.io/inlaws/>.
 
-Additional distribution families for **mgcv**. This is a development package;
-consult each family's help for parameterizations, limitations, and supported
-fitting methods. Availability does not imply identical validation maturity.
+Additional distribution families for **mgcv**.
+
+**inlaws is highly experimental and largely untested.** All families are
+currently marked as experimental. Interfaces, defaults, and behaviour may
+change without notice, and fitted results may be incorrect. The existing
+tests and checks provide only partial validation; they do not establish
+reliability across datasets, model specifications, or fitting methods.
+Independently validate results before relying on them.
+
+Consult each family's help for parameterizations, limitations, and supported
+fitting methods. Experimental markers will be removed from individual
+families as their behaviour is confirmed and tested.
 
 See the [family compatibility vignette](https://gam-mafia.github.io/inlaws/articles/family-compatibility.html)
 for the current `gam()`/`bam()` and smoothing-selection support matrix, or run
@@ -34,7 +44,7 @@ vignettes. Building the vignette requires the Quarto CLI and the R package
 | Generalized Pareto | `gpd()` |
 
 ```r
-library(inlaws)
+library("inlaws")
 
 set.seed(1)
 d <- data.frame(x = runif(300))

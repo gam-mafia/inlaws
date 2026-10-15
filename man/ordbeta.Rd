@@ -18,6 +18,8 @@ estimation; they do not fix parameters. Active cutpoints must be finite.}
 An \code{extended.family} object for \code{gam()}.
 }
 \description{
+\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#experimental}{\figure{lifecycle-experimental.svg}{options: alt='[Experimental]'}}}{\strong{[Experimental]}}
+
 An extended family for \code{\link[mgcv:gam]{mgcv::gam()}} with exact masses at zero and one,
 and a beta density in the interior. Use \code{method = "REML"} or \code{"ML"}.
 }

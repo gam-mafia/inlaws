@@ -14,6 +14,8 @@ Other links are not supported.}
 A \code{general.family} object for \code{\link[mgcv:gam]{mgcv::gam()}}.
 }
 \description{
+\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#experimental}{\figure{lifecycle-experimental.svg}{options: alt='[Experimental]'}}}{\strong{[Experimental]}}
+
 Model the arithmetic mean and log-response logistic scale using two
 additive predictors and the distribution described in \code{\link[=log_logistic]{log_logistic()}}.
 }

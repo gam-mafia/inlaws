@@ -24,6 +24,8 @@ variance, simulation (\code{rd}), quantile (\code{qf}) and distribution (\code{c
 functions.
 }
 \description{
+\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#experimental}{\figure{lifecycle-experimental.svg}{options: alt='[Experimental]'}}}{\strong{[Experimental]}}
+
 An extended family for \code{\link[mgcv:gam]{mgcv::gam()}} with a log link for the exact mean
 and a fixed or estimated global dispersion parameter.
 }

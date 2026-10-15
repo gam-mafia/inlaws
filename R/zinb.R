@@ -1,5 +1,8 @@
 #' Zero-inflated and hurdle negative binomial families
 #'
+#' @description
+#' `r lifecycle::badge("experimental")`
+#'
 #' Three additive predictors model the underlying NB mean, count-component
 #' probability, and NB size, in that order. The NB variance is
 #' `mu + mu^2/theta` before mixing or truncation.

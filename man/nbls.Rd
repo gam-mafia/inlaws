@@ -14,6 +14,8 @@ nbls(link = list("log", "log"))
 A \code{general.family} object for \code{\link[mgcv:gam]{mgcv::gam()}}.
 }
 \description{
+\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#experimental}{\figure{lifecycle-experimental.svg}{options: alt='[Experimental]'}}}{\strong{[Experimental]}}
+
 Model the mean and size of a negative binomial distribution with two
 additive predictors. The variance is \code{mu + mu^2 / theta}: larger \code{theta}
 means less overdispersion.

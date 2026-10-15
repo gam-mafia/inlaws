@@ -1,5 +1,8 @@
 #' Beta-binomial mean and precision family
 #'
+#' @description
+#' `r lifecycle::badge("experimental")`
+#'
 #' A two-predictor family for grouped binomial data with extra-binomial
 #' variation. The predictors model `logit(mu)` and `log(phi)`, where the latent
 #' success probability has distribution `Beta(mu * phi, (1 - mu) * phi)`.

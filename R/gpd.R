@@ -1,5 +1,8 @@
 #' Generalized Pareto models for threshold excesses
 #'
+#' @description
+#' `r lifecycle::badge("experimental")`
+#'
 #' A two-predictor family for [mgcv::gam()], modelling the scale and shape of
 #' nonnegative excesses above a fixed threshold.
 #'

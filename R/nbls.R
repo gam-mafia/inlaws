@@ -1,5 +1,8 @@
 #' Negative binomial location and size family
 #'
+#' @description
+#' `r lifecycle::badge("experimental")`
+#'
 #' Model the mean and size of a negative binomial distribution with two
 #' additive predictors. The variance is `mu + mu^2 / theta`: larger `theta`
 #' means less overdispersion.

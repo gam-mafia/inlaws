@@ -1,5 +1,8 @@
 #' Conway-Maxwell-Poisson mean and dispersion family
 #'
+#' @description
+#' `r lifecycle::badge("experimental")`
+#'
 #' Model the exact mean and dispersion of Conway-Maxwell-Poisson counts with
 #' two additive predictors using [mgcv::gam()].
 #' @param link Two links, for the mean and dispersion respectively. Both must

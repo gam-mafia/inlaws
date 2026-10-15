@@ -16,6 +16,7 @@ Imports:
     stats,
     utils
 Suggests:
+    lifecycle,
     MASS,
     quarto
 VignetteBuilder: quarto

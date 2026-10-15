@@ -18,6 +18,8 @@ An \code{extended.family} object for \code{gam()}, including \code{rd}, \code{cd
 and \code{qf} distribution callbacks.
 }
 \description{
+\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#experimental}{\figure{lifecycle-experimental.svg}{options: alt='[Experimental]'}}}{\strong{[Experimental]}}
+
 A GP-1 extended family for \code{\link[mgcv:gam]{mgcv::gam()}}, with a log link for the mean
 and one fixed or estimated global dispersion parameter.
 }

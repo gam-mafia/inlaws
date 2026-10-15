@@ -6,8 +6,12 @@
 \alias{inlaws-package}
 \title{Additional distribution families for mgcv}
 \description{
-Experimental response families for models fitted with \code{\link[mgcv:gam]{mgcv::gam()}}.
-See each family for its supported fitting methods and parameterization.
+\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#experimental}{\figure{lifecycle-experimental.svg}{options: alt='[Experimental]'}}}{\strong{[Experimental]}}
+
+Highly experimental and largely untested response families for models
+fitted with \code{\link[mgcv:gam]{mgcv::gam()}}. Interfaces and behaviour may change without
+notice, and results require independent validation. See each family for its
+supported fitting methods and parameterization.
 }
 \seealso{
 Useful links:

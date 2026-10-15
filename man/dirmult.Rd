@@ -15,6 +15,8 @@ An object inheriting from \code{general.family}, \code{extended.family}, and
 \code{family}, suitable for \code{mgcv::gam()}.
 }
 \description{
+\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#experimental}{\figure{lifecycle-experimental.svg}{options: alt='[Experimental]'}}}{\strong{[Experimental]}}
+
 A multi-predictor family for \code{\link[mgcv:gam]{mgcv::gam()}}. Each response row is a vector
 of counts, conditional on its total. Category probabilities and concentration
 can depend on different smooth predictors.

@@ -1,5 +1,8 @@
 #' Log-logistic arithmetic mean and scale family
 #'
+#' @description
+#' `r lifecycle::badge("experimental")`
+#'
 #' A positive response family with a log-linked arithmetic mean and a global
 #' logistic scale for the log response.
 #'

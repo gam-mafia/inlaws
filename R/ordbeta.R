@@ -1,5 +1,8 @@
 #' Ordered beta regression for bounded continuous responses
 #'
+#' @description
+#' `r lifecycle::badge("experimental")`
+#'
 #' An extended family for [mgcv::gam()] with exact masses at zero and one,
 #' and a beta density in the interior. Use `method = "REML"` or `"ML"`.
 #'

@@ -21,6 +21,8 @@ rule to simulated responses for diagnostic references. See
 An object of class \code{c("extended.family", "family")}.
 }
 \description{
+\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#experimental}{\figure{lifecycle-experimental.svg}{options: alt='[Experimental]'}}}{\strong{[Experimental]}}
+
 An independent extended family for \code{\link[mgcv:gam]{mgcv::gam()}} and \code{\link[mgcv:bam]{mgcv::bam()}}. The
 response and censoring limits are supplied on their original, positive scale.
 With \code{mu = exp(eta)}, the model is

@@ -17,6 +17,8 @@ starting at \code{abs(theta)}.}
 An \code{extended.family} object, with \code{rd}, \code{cdf}, and \code{qf} callbacks.
 }
 \description{
+\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#experimental}{\figure{lifecycle-experimental.svg}{options: alt='[Experimental]'}}}{\strong{[Experimental]}}
+
 An extended family with a log link for the mean and one fixed or estimated
 global dispersion parameter, for \code{\link[mgcv:gam]{mgcv::gam()}} and \code{\link[mgcv:bam]{mgcv::bam()}}.
 }

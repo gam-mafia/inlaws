@@ -22,6 +22,8 @@ An object of class \code{extended.family} and \code{family} for \link[mgcv:gam]{
 or \link[mgcv:bam]{mgcv::bam}.
 }
 \description{
+\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#experimental}{\figure{lifecycle-experimental.svg}{options: alt='[Experimental]'}}}{\strong{[Experimental]}}
+
 A gamma family with a log link and a single global dispersion parameter,
 supporting exact, left-censored, right-censored and interval-censored data.
 }

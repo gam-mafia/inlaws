@@ -15,6 +15,8 @@ An object inheriting from \code{general.family}, \code{extended.family}, and
 \code{family}.
 }
 \description{
+\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#experimental}{\figure{lifecycle-experimental.svg}{options: alt='[Experimental]'}}}{\strong{[Experimental]}}
+
 A general family for strictly positive compositional responses, fitted by
 \code{\link[mgcv:gam]{mgcv::gam()}} with REML smoothing parameter estimation.
 }

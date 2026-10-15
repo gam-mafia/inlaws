@@ -1,5 +1,8 @@
 #' Dirichlet-multinomial family for count compositions
 #'
+#' @description
+#' `r lifecycle::badge("experimental")`
+#'
 #' A multi-predictor family for [mgcv::gam()]. Each response row is a vector
 #' of counts, conditional on its total. Category probabilities and concentration
 #' can depend on different smooth predictors.

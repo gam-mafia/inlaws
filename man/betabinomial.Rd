@@ -13,6 +13,8 @@ betabinomial(link = list("logit", "log"))
 A \code{general.family} object for \code{\link[mgcv:gam]{mgcv::gam()}}.
 }
 \description{
+\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#experimental}{\figure{lifecycle-experimental.svg}{options: alt='[Experimental]'}}}{\strong{[Experimental]}}
+
 A two-predictor family for grouped binomial data with extra-binomial
 variation. The predictors model \code{logit(mu)} and \code{log(phi)}, where the latent
 success probability has distribution \code{Beta(mu * phi, (1 - mu) * phi)}.

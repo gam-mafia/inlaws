@@ -26,6 +26,8 @@ when \code{theta} is supplied.}
 An \code{extended.family} object for \code{\link[mgcv:gam]{mgcv::gam()}} and \code{\link[mgcv:bam]{mgcv::bam()}}.
 }
 \description{
+\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#experimental}{\figure{lifecycle-experimental.svg}{options: alt='[Experimental]'}}}{\strong{[Experimental]}}
+
 A single-predictor ordinal family extending \code{\link[mgcv:ocat]{mgcv::ocat()}} to other latent
 distributions. The cumulative link is selected by \code{link}; the returned
 family's location link remains the identity.

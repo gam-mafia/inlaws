@@ -17,6 +17,8 @@ be \code{"log"}.}
 A \code{general.family} object with simulation, CDF and quantile callbacks.
 }
 \description{
+\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#experimental}{\figure{lifecycle-experimental.svg}{options: alt='[Experimental]'}}}{\strong{[Experimental]}}
+
 Model the exact mean and dispersion of Conway-Maxwell-Poisson counts with
 two additive predictors using \code{\link[mgcv:gam]{mgcv::gam()}}.
 }

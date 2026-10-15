@@ -350,6 +350,9 @@
 
 #' Censored gamma distribution for generalized additive models
 #'
+#' @description
+#' `r lifecycle::badge("experimental")`
+#'
 #' A gamma family with a log link and a single global dispersion parameter,
 #' supporting exact, left-censored, right-censored and interval-censored data.
 #'

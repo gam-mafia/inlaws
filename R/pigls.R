@@ -1,5 +1,8 @@
 #' Poisson inverse Gaussian mean and dispersion family
 #'
+#' @description
+#' `r lifecycle::badge("experimental")`
+#'
 #' Model the mean and dispersion of Poisson inverse Gaussian counts with
 #' separate additive predictors, using [mgcv::gam()].
 #' @param link Two links, for the mean and dispersion respectively. Both must

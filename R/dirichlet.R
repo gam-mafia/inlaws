@@ -1,5 +1,8 @@
 #' Dirichlet mean and concentration additive models
 #'
+#' @description
+#' `r lifecycle::badge("experimental")`
+#'
 #' A general family for strictly positive compositional responses, fitted by
 #' [mgcv::gam()] with REML smoothing parameter estimation.
 #'

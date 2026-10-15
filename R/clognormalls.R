@@ -1,5 +1,8 @@
 #' Censored lognormal mean and scale family
 #'
+#' @description
+#' `r lifecycle::badge("experimental")`
+#'
 #' Model the conditional arithmetic mean and log-response standard deviation
 #' with separate additive predictors, using an independent censored lognormal
 #' likelihood shared with [clognormal()].

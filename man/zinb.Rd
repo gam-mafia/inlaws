@@ -16,6 +16,8 @@ zanb(link = list("log", "logit", "log"))
 A \code{general.family} for \code{\link[mgcv:gam]{mgcv::gam()}}.
 }
 \description{
+\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#experimental}{\figure{lifecycle-experimental.svg}{options: alt='[Experimental]'}}}{\strong{[Experimental]}}
+
 Three additive predictors model the underlying NB mean, count-component
 probability, and NB size, in that order. The NB variance is
 \code{mu + mu^2/theta} before mixing or truncation.

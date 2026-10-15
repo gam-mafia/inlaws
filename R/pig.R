@@ -1,5 +1,8 @@
 #' Poisson inverse Gaussian family for count responses
 #'
+#' @description
+#' `r lifecycle::badge("experimental")`
+#'
 #' An extended family with a log link for the mean and one fixed or estimated
 #' global dispersion parameter, for [mgcv::gam()] and [mgcv::bam()].
 #' @param theta Dispersion: `NULL` or zero estimates it starting at one;

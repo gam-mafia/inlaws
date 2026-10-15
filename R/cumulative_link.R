@@ -1,5 +1,8 @@
 #' Cumulative-link family for ordered categorical responses
 #'
+#' @description
+#' `r lifecycle::badge("experimental")`
+#'
 #' A single-predictor ordinal family extending [mgcv::ocat()] to other latent
 #' distributions. The cumulative link is selected by `link`; the returned
 #' family's location link remains the identity.

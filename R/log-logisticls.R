@@ -1,5 +1,8 @@
 #' Log-logistic arithmetic mean and varying scale family
 #'
+#' @description
+#' `r lifecycle::badge("experimental")`
+#'
 #' Model the arithmetic mean and log-response logistic scale using two
 #' additive predictors and the distribution described in [log_logistic()].
 #' @param link The two links, `list("log", "logit")`, for mean and scale.

@@ -18,6 +18,8 @@ rule to simulated responses for diagnostic references. See
 A \code{general.family} object for \code{\link[mgcv:gam]{mgcv::gam()}}.
 }
 \description{
+\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#experimental}{\figure{lifecycle-experimental.svg}{options: alt='[Experimental]'}}}{\strong{[Experimental]}}
+
 Model the conditional arithmetic mean and dispersion of a gamma response
 with separate additive predictors, allowing non-informative censoring.
 }

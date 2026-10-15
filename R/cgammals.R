@@ -1,5 +1,8 @@
 #' Censored gamma mean and dispersion family
 #'
+#' @description
+#' `r lifecycle::badge("experimental")`
+#'
 #' Model the conditional arithmetic mean and dispersion of a gamma response
 #' with separate additive predictors, allowing non-informative censoring.
 #'

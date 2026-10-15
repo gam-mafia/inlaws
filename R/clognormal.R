@@ -190,6 +190,9 @@
 
 #' Censored lognormal family with an arithmetic mean predictor
 #'
+#' @description
+#' `r lifecycle::badge("experimental")`
+#'
 #' An independent extended family for [mgcv::gam()] and [mgcv::bam()]. The
 #' response and censoring limits are supplied on their original, positive scale.
 #' With `mu = exp(eta)`, the model is

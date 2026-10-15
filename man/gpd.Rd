@@ -14,6 +14,8 @@ Shape uses \code{"logshift"} (the default) or \code{"identity"}.}
 An mgcv \code{general.family} object.
 }
 \description{
+\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#experimental}{\figure{lifecycle-experimental.svg}{options: alt='[Experimental]'}}}{\strong{[Experimental]}}
+
 A two-predictor family for \code{\link[mgcv:gam]{mgcv::gam()}}, modelling the scale and shape of
 nonnegative excesses above a fixed threshold.
 }

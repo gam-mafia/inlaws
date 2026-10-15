@@ -17,6 +17,8 @@ a negative value estimates it starting at \code{abs(theta)}.}
 An \code{extended.family} object for \code{\link[mgcv:gam]{mgcv::gam()}} or \code{\link[mgcv:bam]{mgcv::bam()}}.
 }
 \description{
+\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#experimental}{\figure{lifecycle-experimental.svg}{options: alt='[Experimental]'}}}{\strong{[Experimental]}}
+
 A positive response family with a log-linked arithmetic mean and a global
 logistic scale for the log response.
 }

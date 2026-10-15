@@ -1,5 +1,8 @@
 #' Generalized Poisson family for count responses
 #'
+#' @description
+#' `r lifecycle::badge("experimental")`
+#'
 #' A GP-1 extended family for [mgcv::gam()], with a log link for the mean
 #' and one fixed or estimated global dispersion parameter.
 #'

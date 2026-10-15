@@ -1,5 +1,8 @@
 #' Mean-parametrised Conway-Maxwell-Poisson family
 #'
+#' @description
+#' `r lifecycle::badge("experimental")`
+#'
 #' An extended family for [mgcv::gam()] with a log link for the exact mean
 #' and a fixed or estimated global dispersion parameter.
 #'
