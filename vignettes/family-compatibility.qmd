@@ -32,6 +32,7 @@ parameter selection, not simply maximization of an unpenalized likelihood.
 | `dirichlet()` | General | Yes | No | No | No / No | No | No / No |
 | `dirmult()` | General | Yes | No | No | No / No | No | No / No |
 | `gpoisson()` | Extended | Yes | Yes | ? | ? / ? | ? | ? / ? |
+| `gen_gammalss()` | General | Yes | No | Yes | No / No | No | No / No |
 | `gpd()` | General | Yes | No | No | No / No | No | No / No |
 | `pig()` | Extended | Yes | Yes | Yes | Yes / Yes | Yes | Yes / Yes |
 | `pigls()` | General | Yes | No | Yes | No / No | No | No / No |
@@ -63,7 +64,8 @@ does not by itself establish that every fitting route works.
 - **NCV and QNCV:** NCV is approximate neighbourhood cross-validation.
   `betabinomial()` supports row-level neighbourhoods, not automatic
   leave-one-trial-out validation of aggregated binomial counts, and explicitly
-  rejects QNCV. `zinb()` and `zanb()` support both NCV and QNCV. QNCV has not
+  rejects QNCV. `zinb()`, `zanb()` and `gen_gammalss()` support both NCV and
+  QNCV. QNCV has not
   been validated for the other NCV-capable families listed here. Discrete
   `bam()` NCV uses the working linear model, so its optimum need not match
   `gam()` NCV.
@@ -94,6 +96,14 @@ does not by itself establish that every fitting route works.
   two formulae and separate coefficients. Both constrain scale to `(0, 1)`;
   variance is infinite at scale >= 0.5, where Pearson residuals are `NA`.
   Tests are in `tests/log-logistic-models.R` and `tests/log-logisticls.R`.
+- **Generalized gamma predictors:** `gen_gammalss()` models arithmetic mean,
+  Prentice scale and transformed shape with three log-linked predictors.
+  Response columns are `mu`, `sigma`, `r`, where `r = 1 + sigma * Q > 0`
+  enforces a finite mean. Constant `r` does not imply constant `Q` when
+  scale varies. Variance requires `r > 0.5`. REML uses Newton or BFGS;
+  NCV/QNCV use BFGS and mgcv 1.9-4 conjugate-gradient deletion solves.
+  Jackknife coefficient updates are computed locally. Reassess these
+  compatibility measures after upstream NCV fixes in later mgcv versions.
 - **Scope:** `cmp()` is a pure-R reference implementation whose large-data
   performance is unvalidated. No family here has a supported `gamm()` route.
   GCV/UBRE and other unlisted smoothing criteria are outside this summary.

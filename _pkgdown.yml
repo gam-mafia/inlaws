@@ -19,6 +19,7 @@ reference:
       - zinb
   - title: Positive continuous families
     contents:
+      - gen_gammalss
       - log_logistic
       - log_logisticls
   - title: Censored and extreme-value families

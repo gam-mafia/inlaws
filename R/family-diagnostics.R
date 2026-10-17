@@ -8,9 +8,9 @@
 #' @details Count families supply CDF left limits, including at zero and between
 #'   integers. Mixture and ordered-beta moments describe the complete response.
 #'   Cumulative-link probability functions use the latent predictor `eta` and
-#'   its moments describe numeric category values. GPD and log-logistic families
-#'   report whether moments exist; probability diagnostics remain available when
-#'   a required moment is undefined.
+#'   its moments describe numeric category values. GPD, generalized gamma and
+#'   log-logistic families report whether moments exist; probability diagnostics
+#'   remain available when a required moment is undefined.
 #'
 #'   Beta-binomial diagnostics describe success counts and require the fitted
 #'   family's trial totals or a two-column success/failure response in `y`.
@@ -113,6 +113,13 @@ NULL
       if (is.function(observe)) out$observe <- observe
       nuisance <- if (is.matrix(mu)) mu[, 2L] else family$getTheta(TRUE)
       out$variance <- if (kind %in% c("cgamma", "cgammals")) m^2 * nuisance else m^2 * expm1(nuisance^2)
+    }
+    if (kind == "gen_gammalss") {
+      out$continuous <- TRUE
+      out$mean <- m
+      out$variance <- .gen_gamma_variance(mu)
+      out$variance_available <- all(mu[, 3L] > .5)
+      out$moment_reason <- "Generalized gamma variance requires r > 0.5 (1 + 2*sigma*Q > 0)."
     }
     if (kind == "gpd") {
       shape <- mu[, 2L]

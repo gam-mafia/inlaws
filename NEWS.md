@@ -42,3 +42,10 @@
 * Censored constructors accept a known `observe` function for simulated
   diagnostic references. `censoring_process()` implements shared scalar limits;
   interval PIT and quantile checks remain available when the rule is unknown.
+
+## New features
+
+* Added `gen_gammalss()` for generalized gamma mean, scale and transformed
+  shape models. Log links model the arithmetic mean, Prentice scale, and
+  `r = 1 + sigma * Q`, ensuring a finite mean. Includes REML, NCV and QNCV
+  in `gam()`, distribution callbacks, and native gratia diagnostics.
