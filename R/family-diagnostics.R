@@ -5,6 +5,10 @@
 #' fitted parameters. No gratia installation is needed to construct or fit a
 #' family. The native `rd`, `cdf` and `qf` functions keep their existing arguments.
 #'
+#'   Inflated-beta callbacks consume link-scale predictor matrices and supply
+#'   complete response moments and both endpoint left limits. Deviance
+#'   residuals are undefined; use PIT, quantile, response or Pearson diagnostics.
+#'
 #' @details Count families supply CDF left limits, including at zero and between
 #'   integers. Mixture and ordered-beta moments describe the complete response.
 #'   Cumulative-link probability functions use the latent predictor `eta` and

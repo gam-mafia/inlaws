@@ -41,6 +41,7 @@ vignettes. Building the vignette requires the Quarto CLI and the R package
 | Poisson inverse Gaussian | `pig()`, `pigls()` |
 | Negative binomial location and size | `nbls()` |
 | Ordered beta | `ordbeta()` |
+| Configurable zero/one inflated beta | `zoibetals()` |
 | Zero-inflated / hurdle negative binomial | `zinb()`, `zanb()` |
 | Generalized Pareto | `gpd()` |
 
@@ -56,6 +57,15 @@ predict(fit, type = "response")
 fit$family$rd(fitted(fit))
 fit$family$qf(0.95, fitted(fit))
 ```
+
+`zoibetals(inflation = "both")` complements `ordbeta()` with separate
+predictors for the interior beta mean, precision, and endpoint membership.
+Use `"zero"` or `"one"` for one active endpoint. Formula order is mean,
+precision, then zero and/or one logits relative to the interior; `~ 1` is
+allowed for every parameter. `predict_zoibetals()` returns named
+component parameters, probabilities, or complete response moments. It supports
+REML with EFS and randomized quantile diagnostics. See `?zoibetals` and
+`inst/examples/zoibetals.R` for a reproducible comparison with `ordbeta()`.
 
 The package contains families and their distribution callbacks, without general
 simulation or quantile wrappers for fitted models. Callback parameter scales and
