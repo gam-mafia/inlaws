@@ -3,6 +3,7 @@
 S3method(fix.family.link,log_logistic.family)
 S3method(fix.family.link,pig.family)
 export(betabinomial)
+export(betals)
 export(censoring_process)
 export(cgamma)
 export(cgammals)

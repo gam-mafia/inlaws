@@ -23,6 +23,7 @@ parameter selection, not simply maximization of an unpenalized likelihood.
 | Family | Class | `gam()` REML | `gam()` ML | `gam()` NCV | `bam()` REML / ML | `bam()` fREML | Discrete `bam()` fREML / NCV |
 |:--|:--|:--:|:--:|:--:|:--:|:--:|:--:|
 | `betabinomial()` | General | Yes | No | Yes | No / No | No | No / No |
+| `betals()` | General | Yes | No | Yes | No / No | No | No / No |
 | `cgamma()` | Extended | Yes | Yes | ? | ? / ? | Yes | Yes / ? |
 | `cgammals()` | General | Yes | No | Yes | No / No | No | No / No |
 | `cgen_gammalss()` | General | Yes | No | Yes | No / No | No | No / No |
@@ -52,6 +53,12 @@ does not by itself establish that every fitting route works.
 
 ## Qualifications
 
+- **Beta mean and precision:** `betals()` uses two formulae for logit mean
+  and log precision, with smooths and offsets in both. Responses must be
+  strictly inside `(0, 1)`. It supports REML Newton/BFGS and NCV, including
+  grouped neighbourhoods; QNCV and shared coefficients are unsupported.
+  Response columns are `mu`, `phi`, with variance `mu * (1 - mu) / (1 + phi)`.
+  Tests are in `tests/betals.R` and `tests/betals-derivatives.R`.
 - **General families:** mgcv does not support these in `bam()`. In mgcv 1.9-4,
   `gam()` changes an ML request to REML for these families. It also resets NCV
   to REML (with a warning) when the family lacks an NCV callback, as for

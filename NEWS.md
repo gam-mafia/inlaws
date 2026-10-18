@@ -1,5 +1,11 @@
 # inlaws 0.0.0.9000
 
+## New features
+
+* Added `betals()` for beta responses with separate logit-mean and
+  log-precision smooth predictors, REML and NCV fitting in `gam()`,
+  simulation, CDF, quantile, and diagnostic callbacks.
+
 - Add `log_logistic()` and `log_logisticls()` for arithmetic mean and
   log-response logistic scale, using log/logit links. Includes distribution
   callbacks, analytic fourth-order derivatives, and tested REML/NCV routes;
@@ -20,18 +26,9 @@
 * Added `cgammals()` for censored gamma models with separate log-mean and
   log-dispersion predictors, REML and NCV fitting, and distribution callbacks.
 
-* Renamed `gp()` to `gpoisson()` to distinguish it from `gpd()`. Update
-  existing calls to the new name; the old constructor is no longer exported.
-
-* Renamed `ocat_link()` to `cumulative_link()`. Update existing calls to the
-  new name; the old constructor is no longer exported.
-
 * Migrated 14 additional mgcv family constructors, their distribution callbacks,
   mathematical notes, and regression tests from mgcvUtils development branches.
 * Included the family-specific `predict_ordbeta()` helper.
-
-* Replaced the statmod dependency with internally generated and cached
-  Gauss-Legendre quadrature rules for the censored gamma and log-normal families.
 
 * All family constructors now supply native `gratia_diagnostics()` factories
   without requiring gratia. They bind fitted parameters to response moments,
@@ -43,8 +40,6 @@
   diagnostic references. `censoring_process()` implements shared scalar limits;
   interval PIT and quantile checks remain available when the rule is unknown.
 
-## New features
-
 * Added `cgen_gammalss()` for censored generalized gamma mean, scale and
   transformed-shape models, with exact, left-, right- and interval-censored
   responses, REML and NCV/QNCV in `gam()`, distribution callbacks, and native
@@ -55,3 +50,14 @@
   `r = 1 + sigma * Q`, ensuring a finite mean. Includes REML, NCV and QNCV
   in `gam()`, distribution callbacks, and native gratia diagnostics.
   Constant scale and shape predictors are supported with both REML optimizers.
+
+## User visible changes
+
+* Renamed `gp()` to `gpoisson()` to distinguish it from `gpd()`. Update
+  existing calls to the new name; the old constructor is no longer exported.
+
+* Renamed `ocat_link()` to `cumulative_link()`. Update existing calls to the
+  new name; the old constructor is no longer exported.
+
+* Replaced the statmod dependency with internally generated and cached
+  Gauss-Legendre quadrature rules for the censored gamma and log-normal families.

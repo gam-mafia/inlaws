@@ -28,6 +28,7 @@ vignettes. Building the vignette requires the Quarto CLI and the R package
 
 | Response | Family constructors |
 | --- | --- |
+| Beta mean and precision | `betals()` |
 | Beta-binomial | `betabinomial()` |
 | Censored gamma | `cgamma()`, `cgammals()` |
 | Log-logistic mean and scale | `log_logistic()`, `log_logisticls()` |
