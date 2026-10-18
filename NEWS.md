@@ -45,6 +45,11 @@
   responses, REML and NCV/QNCV in `gam()`, distribution callbacks, and native
   gratia diagnostics.
 
+* Added `zoibetals()` with configurable zero, one, or both endpoint
+  masses, separate interior mean, precision and membership predictors, EFS
+  REML fitting, named component/moment predictions, distribution callbacks,
+  and native randomized quantile diagnostics.
+
 * Added `gen_gammalss()` for generalized gamma mean, scale and transformed
   shape models. Log links model the arithmetic mean, Prentice scale, and
   `r = 1 + sigma * Q`, ensuring a finite mean. Includes REML, NCV and QNCV

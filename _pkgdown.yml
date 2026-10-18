@@ -35,6 +35,8 @@ reference:
       - cumulative_link
       - betals
       - ordbeta
+      - zoibetals
+      - predict_zoibetals
       - predict_ordbeta
   - title: Compositional families
     contents:

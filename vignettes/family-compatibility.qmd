@@ -24,6 +24,7 @@ parameter selection, not simply maximization of an unpenalized likelihood.
 |:--|:--|:--:|:--:|:--:|:--:|:--:|:--:|
 | `betabinomial()` | General | Yes | No | Yes | No / No | No | No / No |
 | `betals()` | General | Yes | No | Yes | No / No | No | No / No |
+| `zoibetals()` | General | Yes | No | No | No / No | No | No / No |
 | `cgamma()` | Extended | Yes | Yes | ? | ? / ? | Yes | Yes / ? |
 | `cgammals()` | General | Yes | No | Yes | No / No | No | No / No |
 | `cgen_gammalss()` | General | Yes | No | Yes | No / No | No | No / No |
@@ -64,7 +65,7 @@ does not by itself establish that every fitting route works.
   to REML (with a warning) when the family lacks an NCV callback, as for
   `gpd()`. A returned model therefore does not prove the requested method ran;
   inspect `fit$method`.
-- **Optimizers:** `dirmult()` uses extended Fellner--Schall (`optimizer =
+- **Optimizers:** `zoibetals()` and `dirmult()` use extended Fellner--Schall (`optimizer =
   "efs"`), selected automatically; Newton/BFGS smoothing optimization is not
   implemented. `betabinomial()` has tested REML Newton and BFGS routes;
   `nbls()`, `zinb()`, and `zanb()` also have tested EFS routes. NCV for
@@ -116,6 +117,18 @@ does not by itself establish that every fitting route works.
   The censored family accepts the same response encoding as `cgamma()`,
   supports all three predictor offsets, and integrates analytic derivatives
   through order four for censoring probabilities, including at `Q = 0`.
+- **Inflated beta:** `zoibetals(inflation = "both")` uses four formulas:
+  interior logit mean, log precision, zero logit, one logit. `"zero"` and
+  `"one"` use three formulas, fixing the excluded probability to zero.
+  Endpoint logits use the interior as reference. REML uses EFS with all-free
+  unlinked or all-fixed smoothing parameters; shared smoothing IDs and partly
+  fixed penalties are rejected. Active but unobserved components are rejected.
+  `predict_zoibetals()` exposes interior parameters, all component
+  probabilities, and complete response moments. Native callbacks consume link
+  predictor matrices; diagnostics provide endpoint left limits for randomized
+  PIT. Deviance diagnostics are undefined; use response, Pearson or quantile
+  residuals. Tests are in `tests/zoibetals.R`; a comparison with `ordbeta()`
+  is in `inst/examples/zoibetals.R`.
 - **Scope:** `cmp()` is a pure-R reference implementation whose large-data
   performance is unvalidated. No family here has a supported `gamm()` route.
   GCV/UBRE and other unlisted smoothing criteria are outside this summary.

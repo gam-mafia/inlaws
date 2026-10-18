@@ -25,8 +25,10 @@ export(ordbeta)
 export(pig)
 export(pigls)
 export(predict_ordbeta)
+export(predict_zoibetals)
 export(zanb)
 export(zinb)
+export(zoibetals)
 importFrom(mgcv,
   fix.family.link,
   gam

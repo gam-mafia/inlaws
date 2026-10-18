@@ -16,6 +16,7 @@ Imports:
     stats,
     utils
 Suggests:
+    gratia,
     lifecycle,
     MASS,
     quarto
