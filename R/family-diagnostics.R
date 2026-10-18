@@ -137,6 +137,11 @@ NULL
       out$variance_available <- all(s < .5)
       out$moment_reason <- "Log-logistic variance requires log-response scale < 0.5."
     }
+    if (kind == "betals") {
+      out$continuous <- TRUE
+      out$mean <- m
+      out$variance <- m * (1 - m) / (1 + mu[, 2L])
+    }
     if (kind == "betabinomial") {
       trials <- if (is.matrix(y) && NCOL(y) == 2L) rowSums(y) else family$trials
       if (is.null(trials) || length(trials) != NROW(mu))
