@@ -58,6 +58,17 @@ fit$family$rd(fitted(fit))
 fit$family$qf(0.95, fitted(fit))
 ```
 
+`ordbeta()` response predictions now return a matrix ordered `mu`, `p0`, `pI`,
+`p1`, `mean`: the conditional interior beta mean, probabilities of zero/interior/one,
+and the complete response mean `p1 + pI * mu`. This replaces the previous mean
+vector; use `predict(fit, type = "response")[, 5]` or `predict_ordbeta(fit)` for
+that vector. The helper also selects `"conditional"` or named `"probabilities"`
+and restores column names that mgcv may discard. Prediction standard errors
+treat fitted precision and active cutpoints as fixed, including with
+`unconditional = TRUE` (which only requests a smoothing uncertainty correction
+to coefficient covariance). Link predictions and the interior means stored in
+`fitted.values` retain their existing representation.
+
 `zoibetals(inflation = "both")` complements `ordbeta()` with separate
 predictors for the interior beta mean, precision, and endpoint membership.
 Use `"zero"` or `"one"` for one active endpoint. Formula order is mean,

@@ -45,13 +45,25 @@ scale is fixed at one. \code{fit$family$getTheta(TRUE)} returns named \code{phi}
 Sparse components, separation, or almost constant interior responses can
 still produce weak identification or convergence problems.
 
-\code{predict(fit, type = "response")} returns the complete mean
-\code{p1 + pI * mu}. In contrast, \code{fit$fitted.values} and the \code{mu} arguments of
-the family distribution methods contain the interior mean. Use
-\code{\link[=predict_ordbeta]{predict_ordbeta()}} for component probabilities or the interior mean.
-Prediction standard errors treat nuisance parameters as fixed; even
-\code{unconditional = TRUE} does not add their direct contribution to the
-transformation. No full joint uncertainty intervals are provided.
+\code{predict(fit, type = "response")} returns a five-column matrix, in the
+order \code{mu}, \code{p0}, \code{pI}, \code{p1}, \code{mean}, following \code{\link[=zoibetals]{zoibetals()}} conventions:
+\code{mu} is the conditional interior beta mean; \code{p0}, \code{pI}, and \code{p1} are the
+probabilities of zero, an interior response, and one; \code{mean = p1 + pI * mu}
+is the complete response mean. This replaces the previous vector of complete
+means: select column 5 or use \code{\link[=predict_ordbeta]{predict_ordbeta()}} with \code{type = "response"}
+for that vector. mgcv may discard response column names; the helper restores
+them before selecting components. With \code{se.fit = TRUE}, \code{fit} and \code{se.fit}
+have the same five columns. Link predictions remain a vector of \code{eta}.
+
+\code{fit$fitted.values} and the \code{mu} arguments of the family distribution
+methods retain the interior mean. Prediction standard errors use the full
+coefficient covariance and the delta method, treating fitted precision and
+active cutpoints as fixed. Disabled endpoint probabilities and their standard
+errors are exactly zero. \code{unconditional = TRUE} requests mgcv's smoothing
+parameter uncertainty correction to the coefficient covariance, when
+available; it does not add direct uncertainty in precision or cutpoints.
+These are estimation standard errors, not predictive standard deviations
+or full joint uncertainty intervals.
 
 Response and Pearson residuals use the complete mean and variance.
 Deviance residuals use the saturated likelihood with nuisance parameters
@@ -77,7 +89,9 @@ d$y[u < plogis(-1 - eta)] <- 0
 d$y[u > 1 - plogis(eta - 1)] <- 1
 fit <- mgcv::gam(y ~ s(x, k = 6), data = d,
                  family = ordbeta(), method = "REML")
-predict_ordbeta(fit, type = "probabilities")
+head(predict(fit, type = "response")) # mu, p0, pI, p1, mean
+head(predict_ordbeta(fit)) # complete response mean as a vector
+head(predict_ordbeta(fit, type = "probabilities"))
 fit$family$getTheta(TRUE)
 }
 \references{

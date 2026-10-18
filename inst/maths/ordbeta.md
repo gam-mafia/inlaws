@@ -123,11 +123,21 @@ The derivatives with respect to eta are
     pI' =  pI*(p0-p1)
     m'  = p1' + pI'*mu + pI*mu*(1-mu).
 
-Prediction standard errors multiply the linear-predictor SE by the absolute
-appropriate derivative. Family parameters are treated as fixed, even when
-the coefficient covariance includes mgcv's smoothing-parameter correction.
-`fitted.values` remains the interior mean, consistent with the internal
-logit link; response predictions and response/Pearson residuals use `m`.
+The family prediction callback returns columns `mu`, `p0`, `pI`, `p1`, `mean`
+(with `mean = m`), in the same relative order as `zoibetals()`. This intentionally
+replaces the previous vector of complete means. `predict_ordbeta()` selects
+columns of standard response predictions and restores names mgcv may discard.
+
+For each quantity `g`, its coefficient Jacobian is `g'(eta) * X`, with
+`mu' = mu*(1-mu)` and the other derivatives above. Standard errors are
+`abs(g'(eta)) * sqrt(diag(X %*% Vb %*% t(X)))`, using the full supplied
+coefficient covariance `Vb`. Offsets contribute to `eta` but not its coefficient
+Jacobian. Precision and active cutpoints are treated as fixed; even when
+`unconditional = TRUE` supplies mgcv's smoothing-parameter covariance correction,
+it does not add their direct uncertainty. Disabled endpoint probabilities and
+derivatives are exactly zero, hence so are their standard errors.
+`fitted.values` remains the interior mean, consistent with the internal logit
+link and distribution callbacks; response/Pearson residuals use `m`.
 
 The saturated likelihood holds nuisance parameters fixed and maximizes each
 interior contribution over eta by scalar optimization. Endpoint suprema

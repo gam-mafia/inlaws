@@ -43,6 +43,18 @@
   diagnostic references. `censoring_process()` implements shared scalar limits;
   interval PIT and quantile checks remain available when the rule is unknown.
 
+## User visible changes
+
+* `ordbeta()` response predictions now return a five-column matrix ordered
+  `mu`, `p0`, `pI`, `p1`, `mean`, following `zoibetals()` conventions. These
+  contain the conditional interior mean, zero/interior/one probabilities, and
+  complete response mean. Code expecting the previous mean vector should use
+  column 5 or `predict_ordbeta(fit)`. The helper selects standard predictions
+  and restores column names, with probabilities now named `p0`, `pI`, `p1`.
+  Delta-method standard errors condition on fitted precision and active
+  cutpoints, including with `unconditional = TRUE`. Link predictions and
+  the interior means stored in `fitted.values` retain their representation.
+
 ## New features
 
 * Added `zoibetals()` with configurable zero, one, or both endpoint

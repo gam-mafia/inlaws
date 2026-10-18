@@ -105,6 +105,17 @@ does not by itself establish that every fitting route works.
   NCV/QNCV use BFGS and mgcv 1.9-4 conjugate-gradient deletion solves.
   Jackknife coefficient updates are computed locally. Reassess these
   compatibility measures after upstream NCV fixes in later mgcv versions.
+- **Ordered beta predictions:** `predict(fit, type = "response")` now returns
+  five columns ordered `mu`, `p0`, `pI`, `p1`, `mean`: the interior beta mean,
+  zero/interior/one probabilities, and complete mean `p1 + pI * mu`.
+  This replaces the previous complete-mean vector; use column 5 or
+  `predict_ordbeta(fit)` for that vector. The helper restores names mgcv may
+  discard and also selects `"conditional"` and `"probabilities"`. Standard errors
+  use coefficient covariance with fitted precision and active cutpoints fixed;
+  `unconditional = TRUE` requests smoothing uncertainty correction only.
+  Disabled endpoints have exactly zero probability and standard error.
+  Link predictions remain `eta`, and `fitted.values` remains the interior mean
+  required by distribution callbacks. Tests are in `tests/ordbeta.R`.
 - **Inflated beta:** `zoibetals(inflation = "both")` uses four formulas:
   interior logit mean, log precision, zero logit, one logit. `"zero"` and
   `"one"` use three formulas, fixing the excluded probability to zero.
