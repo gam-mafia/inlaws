@@ -44,6 +44,9 @@ delta method. Recover Q from response predictions as \code{(r - 1) / sigma};
 uncertainty in Q involves both predictors and their covariance. Predictions
 condition on fitted coefficients, without integration over random effects
 or coefficient uncertainty. Use \code{~ 1} for a constant parameter predictor.
+To estimate constant scale and Prentice shape Q, use \code{~ 1} in both the
+second and third formulae. This estimates constant sigma and r, so
+\code{Q = (r - 1) / sigma} is constant too, while the mean can vary.
 
 Supports REML (outer Newton or BFGS) and NCV/QNCV (BFGS), including offsets
 in all predictors and neighbourhoods supplied through \code{nei}. Separate
@@ -82,6 +85,14 @@ dat$y <- gen_gammalss()$rd(pars)
 fit <- mgcv::gam(list(y ~ s(x, k = 6), ~ z, ~ 1), data = dat,
                  family = gen_gammalss(), method = "REML")
 head(predict(fit, type = "response"))
+
+# Estimate constant scale and shape, allowing the mean to vary:
+fit_const <- mgcv::gam(list(y ~ s(x, k = 6), ~ 1, ~ 1), data = dat,
+                       family = gen_gammalss(), method = "REML")
+pars_const <- fitted(fit_const)
+# Recover Prentice's Q from response-scale sigma and r:
+Q <- (pars_const[, "r"] - 1) / pars_const[, "sigma"]
+head(cbind(pars_const, Q = Q))
 }
 \references{
 Prentice, R. L. (1974). A log gamma model and its maximum

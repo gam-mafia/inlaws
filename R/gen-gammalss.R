@@ -32,6 +32,9 @@
 #' uncertainty in Q involves both predictors and their covariance. Predictions
 #' condition on fitted coefficients, without integration over random effects
 #' or coefficient uncertainty. Use `~ 1` for a constant parameter predictor.
+#' To estimate constant scale and Prentice shape Q, use `~ 1` in both the
+#' second and third formulae. This estimates constant sigma and r, so
+#' `Q = (r - 1) / sigma` is constant too, while the mean can vary.
 #'
 #' Supports REML (outer Newton or BFGS) and NCV/QNCV (BFGS), including offsets
 #' in all predictors and neighbourhoods supplied through `nei`. Separate
@@ -72,6 +75,14 @@
 #' fit <- mgcv::gam(list(y ~ s(x, k = 6), ~ z, ~ 1), data = dat,
 #'                  family = gen_gammalss(), method = "REML")
 #' head(predict(fit, type = "response"))
+#'
+#' # Estimate constant scale and shape, allowing the mean to vary:
+#' fit_const <- mgcv::gam(list(y ~ s(x, k = 6), ~ 1, ~ 1), data = dat,
+#'                        family = gen_gammalss(), method = "REML")
+#' pars_const <- fitted(fit_const)
+#' # Recover Prentice's Q from response-scale sigma and r:
+#' Q <- (pars_const[, "r"] - 1) / pars_const[, "sigma"]
+#' head(cbind(pars_const, Q = Q))
 gen_gammalss <- function(link = list("log", "log", "log")) {
   if (!identical(unname(unlist(link)), rep("log", 3L)))
     stop('gen_gammalss requires three "log" links')
@@ -82,7 +93,7 @@ gen_gammalss <- function(link = list("log", "log", "log")) {
   })
   family <- structure(list(family = "gen_gammalss", link = unlist(link), nlp = 3L,
     linfo = linfo, tri = mgcv::trind.generator(3), ll = .gen_gamma_ll,
-    ncv = .gen_gamma_ncv, init = .gen_gamma_init,
+    ncv = .gen_gamma_ncv, init = .gen_gamma_init, evaluate = .gen_gamma_eval,
     initialize = expression({
       y <- family$prepare.response(y)
       n <- rep.int(1, nobs)
@@ -143,7 +154,7 @@ gen_gammalss <- function(link = list("log", "log", "log")) {
   bad <- function() list(l = -Inf, l0 = ifelse(active, -Inf, 0))
   if (any(!is.finite(eta)) || any(!is.finite(exp(eta)) | exp(eta) <= 0)) return(bad())
   order <- if (!deriv) 0L else if (deriv == 1L) 2L else if (deriv < 4L) 3L else 4L
-  r <- .gen_gamma_eval(y, eta, order)
+  r <- family$evaluate(y, eta, order)
   ell <- r$ell * wt; ell[!active, ] <- 0
   if (any(!is.finite(ell))) return(bad())
   ret <- list()
@@ -163,10 +174,16 @@ gen_gammalss <- function(link = list("log", "log", "log")) {
     })
     l3 <- if (order >= 3L) packed[[3]] else 0
     l4 <- if (order >= 4L) packed[[4]] else 0
+    contracted <- deriv == 2L && any(lengths(jj) == 1L)
+    # mgcv 1.9-4 drops matrix dimensions in its trace-only route
+    # when a predictor has a single coefficient. Contract the full Hessian
+    # derivative instead, preserving intercept-only scale/shape predictors.
+    gh_deriv <- if (contracted) 2L else deriv - 1L
     if (!supplied && !is.null(jj)) ret <- mgcv::gamlss.gH(
       X, jj, packed[[1]], packed[[2]], family$tri$i2,
       l3 = l3, i3 = family$tri$i3, l4 = l4, i4 = family$tri$i4,
-      d1b = d1b, d2b = d2b, deriv = deriv - 1L, fh = fh, D = D, sandwich = sandwich)
+      d1b = d1b, d2b = d2b, deriv = gh_deriv, fh = fh, D = D, sandwich = sandwich)
+    if (contracted && !supplied) ret$d1H <- vapply(ret$d1H, function(z) sum(z*fh), numeric(1))
     if (ncv) { ret$l1 <- packed[[1]]; ret$l2 <- packed[[2]]; ret$l3 <- l3
       if (order >= 4L) ret$l4 <- l4 }
   }

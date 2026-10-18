@@ -45,7 +45,13 @@
 
 ## New features
 
+* Added `cgen_gammalss()` for censored generalized gamma mean, scale and
+  transformed-shape models, with exact, left-, right- and interval-censored
+  responses, REML and NCV/QNCV in `gam()`, distribution callbacks, and native
+  gratia diagnostics.
+
 * Added `gen_gammalss()` for generalized gamma mean, scale and transformed
   shape models. Log links model the arithmetic mean, Prentice scale, and
   `r = 1 + sigma * Q`, ensuring a finite mean. Includes REML, NCV and QNCV
   in `gam()`, distribution callbacks, and native gratia diagnostics.
+  Constant scale and shape predictors are supported with both REML optimizers.

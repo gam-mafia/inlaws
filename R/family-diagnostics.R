@@ -50,7 +50,7 @@ NULL
   factory <- function(mu, wt, scale, y, eta) {
     out <- list()
     count <- kind %in% c("nbls", "cmp", "cmpls", "gpoisson", "pig", "pigls", "mixture")
-    censored <- kind %in% c("cgamma", "cgammals", "clognormal", "clognormalls")
+    censored <- kind %in% c("cgamma", "cgammals", "clognormal", "clognormalls", "cgen_gammalss")
     m <- if (is.matrix(mu)) mu[, 1L] else mu
     if (count || censored || kind %in% c("log_logistic", "log_logisticls")) out$mean <- m
     if (count) {
@@ -112,9 +112,9 @@ NULL
       out$reference_reason <- "Supply the censoring observation process to generate reference residuals."
       if (is.function(observe)) out$observe <- observe
       nuisance <- if (is.matrix(mu)) mu[, 2L] else family$getTheta(TRUE)
-      out$variance <- if (kind %in% c("cgamma", "cgammals")) m^2 * nuisance else m^2 * expm1(nuisance^2)
+      if (kind != "cgen_gammalss") out$variance <- if (kind %in% c("cgamma", "cgammals")) m^2 * nuisance else m^2 * expm1(nuisance^2)
     }
-    if (kind == "gen_gammalss") {
+    if (kind %in% c("gen_gammalss", "cgen_gammalss")) {
       out$continuous <- TRUE
       out$mean <- m
       out$variance <- .gen_gamma_variance(mu)

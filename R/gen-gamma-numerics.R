@@ -119,19 +119,23 @@
        normalizer = normalizer, correction = correction, t = t, j = j)
 }
 
-.gen_gamma_eval <- function(y, eta, order = 0L) {
-  r <- .gen_gamma_core(eta, order); j <- r$j; M <- j$multiply; C <- j$constant
-  z <- M(C(log(y)) - r$location, j$exp(-r$t)); x <- M(r$Q, z)
-  # E(x) = {exp(x)-1-x}/x^2; series and its derivatives avoid division at zero.
-  e <- C(numeric(length(y))); small <- abs(x[, 1]) <= 1
+.gen_gamma_log_density <- function(log_y, r) {
+  j <- r$j; M <- j$multiply; C <- j$constant
+  z <- M(C(log_y) - r$location, j$exp(-r$t)); x <- M(r$Q, z)
+  # E(x) = {exp(x)-1-x}/x^2 is analytic at zero.
+  e <- C(numeric(length(log_y))); small <- abs(x[, 1]) <= 1
   if (any(small)) e[small, ] <- j$polynomial(x[small, , drop = FALSE], 1/gamma(3:35))
   if (any(!small)) {
     xx <- x[!small, , drop = FALSE]; inv <- j$inverse(xx)
     e[!small, ] <- M(j$expm1(xx) - xx, M(inv, inv))
   }
-  penalty <- M(M(z, z), e)
-  list(ell = r$normalizer - r$t - C(log(y)) - penalty,
-       sat = r$normalizer - r$t - C(log(y)), powers = j$powers,
+  r$normalizer - r$t - M(M(z, z), e)
+}
+
+.gen_gamma_eval <- function(y, eta, order = 0L) {
+  r <- .gen_gamma_core(eta, order); C <- r$j$constant
+  list(ell = .gen_gamma_log_density(log(y), r) - C(log(y)),
+       sat = r$normalizer - r$t - C(log(y)), powers = r$j$powers,
        location = r$location[, 1], Q = r$Q[, 1])
 }
 

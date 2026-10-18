@@ -62,3 +62,10 @@ fails(gam(list(y~1,~1,~1,1+3~z-1),data=d,family=f))
 # bam routes must fail explicitly, rather than silently fitting another model.
 for(discrete in c(FALSE,TRUE)) for(method in c("fREML","NCV"))
   fails(suppressWarnings(mgcv::bam(form,data=d,family=f,method=method,discrete=discrete)))
+
+# Both nuisance predictors may be constants with either REML optimizer.
+constant_form <- list(y ~ s(x, k = 5), ~ 1, ~ 1)
+constant <- gam(constant_form, data = d, family = f, method = "REML")
+constant_bfgs <- gam(constant_form, data = d, family = f, method = "REML",
+  optimizer = c("outer", "bfgs"))
+near(coef(constant), coef(constant_bfgs), .001)

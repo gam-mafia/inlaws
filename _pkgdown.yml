@@ -26,6 +26,7 @@ reference:
     contents:
       - cgamma
       - cgammals
+      - cgen_gammalss
       - clognormal
       - clognormalls
       - gpd

@@ -25,6 +25,7 @@ parameter selection, not simply maximization of an unpenalized likelihood.
 | `betabinomial()` | General | Yes | No | Yes | No / No | No | No / No |
 | `cgamma()` | Extended | Yes | Yes | ? | ? / ? | Yes | Yes / ? |
 | `cgammals()` | General | Yes | No | Yes | No / No | No | No / No |
+| `cgen_gammalss()` | General | Yes | No | Yes | No / No | No | No / No |
 | `clognormal()` | Extended | Yes | Yes | Yes | ? / ? | Yes | Yes / Yes |
 | `clognormalls()` | General | Yes | No | Yes | No / No | No | No / No |
 | `cmp()` | Extended | Yes | ? | ? | ? / ? | ? | ? / ? |
@@ -64,7 +65,7 @@ does not by itself establish that every fitting route works.
 - **NCV and QNCV:** NCV is approximate neighbourhood cross-validation.
   `betabinomial()` supports row-level neighbourhoods, not automatic
   leave-one-trial-out validation of aggregated binomial counts, and explicitly
-  rejects QNCV. `zinb()`, `zanb()` and `gen_gammalss()` support both NCV and
+  rejects QNCV. `zinb()`, `zanb()`, `gen_gammalss()` and `cgen_gammalss()` support NCV and
   QNCV. QNCV has not
   been validated for the other NCV-capable families listed here. Discrete
   `bam()` NCV uses the working linear model, so its optimum need not match
@@ -96,7 +97,8 @@ does not by itself establish that every fitting route works.
   two formulae and separate coefficients. Both constrain scale to `(0, 1)`;
   variance is infinite at scale >= 0.5, where Pearson residuals are `NA`.
   Tests are in `tests/log-logistic-models.R` and `tests/log-logisticls.R`.
-- **Generalized gamma predictors:** `gen_gammalss()` models arithmetic mean,
+- **Generalized gamma predictors:** `gen_gammalss()` and its censored counterpart
+  `cgen_gammalss()` model arithmetic mean,
   Prentice scale and transformed shape with three log-linked predictors.
   Response columns are `mu`, `sigma`, `r`, where `r = 1 + sigma * Q > 0`
   enforces a finite mean. Constant `r` does not imply constant `Q` when
@@ -104,6 +106,9 @@ does not by itself establish that every fitting route works.
   NCV/QNCV use BFGS and mgcv 1.9-4 conjugate-gradient deletion solves.
   Jackknife coefficient updates are computed locally. Reassess these
   compatibility measures after upstream NCV fixes in later mgcv versions.
+  The censored family accepts the same response encoding as `cgamma()`,
+  supports all three predictor offsets, and integrates analytic derivatives
+  through order four for censoring probabilities, including at `Q = 0`.
 - **Scope:** `cmp()` is a pure-R reference implementation whose large-data
   performance is unvalidated. No family here has a supported `gamm()` route.
   GCV/UBRE and other unlisted smoothing criteria are outside this summary.
