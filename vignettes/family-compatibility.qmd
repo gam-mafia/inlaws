@@ -140,6 +140,17 @@ does not by itself establish that every fitting route works.
   PIT. Deviance diagnostics are undefined; use response, Pearson or quantile
   residuals. Tests are in `tests/zoibetals.R`; a comparison with `ordbeta()`
   is in `inst/examples/zoibetals.R`.
+- **Inflated and hurdle negative binomial:** `zinb()` and `zanb()` keep three
+  fitted-value columns (`mu`, `p`, `theta`). Native `predict(type = "response")`
+  returns those three followed by the complete `mean`, `variance`, and `p0`
+  (actual zero probability). mgcv can drop column names, so use positions 4:6
+  for these additional quantities. `se.fit = TRUE` uses the delta method with
+  the full coefficient covariance, including shared coefficients;
+  `unconditional = TRUE` requests smoothing-parameter uncertainty when available.
+  These are estimation errors, not predictive standard deviations. Pass the
+  first three columns to the distribution callbacks. Prediction tests are in
+  `tests/zinb-prediction.R`; the inventory and decisions for all families are in
+  `inst/maths/family-prediction-audit.md` in the package source.
 - **Scope:** `cmp()` is a pure-R reference implementation whose large-data
   performance is unvalidated. No family here has a supported `gamm()` route.
   GCV/UBRE and other unlisted smoothing criteria are outside this summary.

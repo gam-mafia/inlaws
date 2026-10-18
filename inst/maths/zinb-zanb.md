@@ -117,19 +117,50 @@ preserved from mgcv. Full Newton NCV is not implemented; mgcv selects BFGS.
 
 ## Prediction and distribution utilities
 
-Fitted values have named columns mu, p, theta. Response predictions return the
-same three parameters and parameter-wise delta-method SEs. mgcv may discard
-column names when assembling prediction blocks. Link predictions retain the
-three predictor scales. Generic mgcv prediction handles shared coefficients,
-term offsets, and new data without a custom prediction override.
+Fitted values have named columns mu, p, theta. Native response predictions
+return six columns, in order: mu, p, theta, mean, variance, p0. The last three
+describe the complete distribution; p0 is the actual zero probability.
+mgcv may discard column names when assembling prediction blocks. Link
+predictions retain the three predictor scales. Distribution callbacks still
+consume the original three component parameters, so use fitted values or
+response columns 1:3 as their input.
 
 For ZINB, E(Y)=p*mu and Var(Y)=p*(mu+mu^2/theta)+p*(1-p)*mu^2.
 For ZANB, put m=mu/(1-q0). Its positive-component variance is
 
     vplus = m * {1 + mu*(1+1/theta) - m},
 
-so E(Y)=p*m and Var(Y)=p*vplus+p*(1-p)*m^2. These moments define
-response and Pearson residuals, while parameter predictions remain unchanged.
+so E(Y)=p*m and Var(Y)=p*vplus+p*(1-p)*m^2. The actual zero probability is
+1-p+p*q0 for ZINB and 1-p for ZANB. Response and Pearson residuals use these
+complete moments, rather than the NB component mean and variance.
+
+The prediction callback supplies analytic gradients on the three predictor
+scales. For each output f and coefficient b_k, it assembles
+
+    J_k = sum_j (d f / d eta_j) X_jk
+    SE(f) = sqrt(J Vb J').
+
+Contributions from predictors sharing a coefficient are added before the
+covariance contraction. Vb is supplied by mgcv, including its smoothing
+parameter correction when `unconditional = TRUE` and that correction is
+available. Default SEs condition on smoothing parameters. These are
+first-order estimation SEs of plug-in quantities, not response standard
+deviations and not averages over coefficient uncertainty. Fixed offsets enter
+eta and are not differentiated. Prediction does not need a response in newdata.
+
+For the hurdle model, stable series evaluate m-1 and its derivatives near the
+point-mass-at-one limit. Writing r=mu/theta, L=log1p(r)/r and H=a/(1-exp(-a)),
+m=H/L. Evaluate L-1 by its alternating series and H-1 by
+
+    H-1 = a/2 + a^2/12 - a^4/720 + a^6/30240 + O(a^8).
+
+Then m-1=(1/L-1)+(H-1)+(1/L-1)*(H-1). Its variance is calculated as
+m*{mu+r-(m-1)}, preserving small positive variances. The derivative of a
+with respect to log(theta) is mu*{L-1/(1+r)}; this difference also uses a
+series for small r, preserving size derivatives near the Poisson limit.
+Mixture variance is assembled as a sum of nonnegative within-component and
+between-component terms. Logistic complements use plogis(-eta), retaining
+small masses and derivatives even when plogis(eta) rounds to one.
 
 CDFs and quantiles use NB upper-tail probabilities in log space. For ZINB,
 P(Y>q)=p*P(N>q). For ZANB and q>=0,
@@ -154,6 +185,11 @@ weighted scores, fixed-basis deletion refits, NCV/QNCV gradients and offsets,
 probability normalization, moments, simulation, independent MLEs, and hurdle
 component separation. Regression checks cover all fitting methods, prediction,
 weights, utilities, and the pre-existing nbls family.
+`tests/zinb-prediction.R` independently checks PMF moments, analytic prediction
+gradients, finite-difference coefficient SEs with full and corrected covariance,
+shared coefficients, offsets, exclusions, block sizes, missing rows, tiny means,
+extreme logits and Poisson limits. The complete callback audit is recorded in
+`inst/maths/family-prediction-audit.md`.
 
 For mgcv 1.9-3, the family retains nbls's supported preinitialize hook that
 supplies the misspelled offxset field needed by EFS in that release. A separate

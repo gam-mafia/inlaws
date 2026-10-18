@@ -1,4 +1,4 @@
-library(inlaws)
+library("inlaws")
 near <- function(x, y, tol = 1e-6) stopifnot(length(x) == length(y), all(is.finite(x)), all(is.finite(y)), max(abs(x - y) / pmax(1, abs(x), abs(y))) < tol)
 error <- function(expr, pattern) {
   e <- tryCatch(expr, error = identity)
@@ -63,19 +63,22 @@ for (h in c(FALSE, TRUE)) {
   stopifnot(identical(colnames(f$fitted.values), c("mu", "p", "theta")))
   pr <- predict(f, newdata = d[1:7, ], type = "response", se.fit = TRUE)
   lp <- predict(f, newdata = d[1:7, ], type = "link", se.fit = TRUE)
-  near(pr$fit, cbind(exp(lp$fit[, 1]), plogis(lp$fit[, 2]), exp(lp$fit[, 3])))
-  near(pr$se.fit, lp$se.fit * cbind(pr$fit[, 1], pr$fit[, 2] * (1 - pr$fit[, 2]), pr$fit[, 3]))
+  near(pr$fit[, 1:3], cbind(exp(lp$fit[, 1]), plogis(lp$fit[, 2]), exp(lp$fit[, 3])))
+  near(pr$se.fit[, 1:3], lp$se.fit * cbind(pr$fit[, 1], pr$fit[, 2] * (1 - pr$fit[, 2]), pr$fit[, 3]))
+  near(pr$fit[, 4], mo$mean[1:7])
+  near(pr$fit[, 5], mo$variance[1:7])
+  near(pr$fit[, 6], fam$cdf(0, pr$fit[, 1:3]))
   # Draws and quantiles use the fitted family's predicted parameters.
   set.seed(1)
-  a <- fam$rd(pr$fit)
+  a <- fam$rd(pr$fit[, 1:3])
   set.seed(1)
-  near(a, fam$qf(runif(nrow(pr$fit)), pr$fit))
+  near(a, fam$qf(runif(nrow(pr$fit)), pr$fit[, 1:3]))
   stopifnot(length(a) == 7L, all(a >= 0), all(a == floor(a)),
-            length(fam$rd(pr$fit[1, , drop = FALSE])) == 1L)
+            length(fam$rd(pr$fit[1, 1:3, drop = FALSE])) == 1L)
   for (p in c(.2, .8)) {
-    q <- fam$qf(p, pr$fit)
-    stopifnot(all(fam$cdf(q, pr$fit) >= p - 1e-12),
-              all(fam$cdf(q - 1, pr$fit) < p + 1e-12))
+    q <- fam$qf(p, pr$fit[, 1:3])
+    stopifnot(all(fam$cdf(q, pr$fit[, 1:3]) >= p - 1e-12),
+              all(fam$cdf(q - 1, pr$fit[, 1:3]) < p + 1e-12))
   }
   # Independent constant-model MLE and hurdle component separation.
   constant <- gam(list(y ~ 1, ~1, ~1), data = d, family = fam, method = "REML")
@@ -145,4 +148,4 @@ ref <- ifelse(y == 0, log(1 - p + p * exp(-exp(u))), log(p) + dpois(y, exp(u), l
 near(jet(y, e, FALSE)$l0, ref, 1e-9)
 near(jet(y, e, TRUE)$l0, zipll(y, u, log(-log1p(-p)))$l, 1e-9)
 # Single-row parameter response predictions and offsets retain matrix shape.
-stopifnot(identical(dim(predict(f, newdata = d[1, , drop = FALSE], type = "response")), c(1L, 3L)))
+stopifnot(identical(dim(predict(f, newdata = d[1, , drop = FALSE], type = "response")), c(1L, 6L)))

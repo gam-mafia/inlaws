@@ -28,6 +28,9 @@
 
 * Migrated 14 additional mgcv family constructors, their distribution callbacks,
   mathematical notes, and regression tests from mgcvUtils development branches.
+  Native response predictions for `zinb()` and `zanb()` include the complete
+  response mean, variance, and zero probability after the original three
+  component parameters, with full-covariance delta-method standard errors.
 * Included the family-specific `predict_ordbeta()` helper.
 
 * All family constructors now supply native `gratia_diagnostics()` factories
