@@ -30,11 +30,24 @@ probability is \code{1-p+p*q0}, where \code{q0} is the NB zero probability.
 \code{zanb()} is a hurdle model: zero probability is \code{1-p}, and positive counts
 follow the zero-truncated NB. Here \code{mu} always refers to the untruncated NB.
 
-Fitted values and response predictions are matrices with columns ordered \code{mu},
-\code{p}, \code{theta}, including parameter-wise delta-method standard errors.
-Fitted-value columns are named; mgcv may omit response-prediction names.
+Fitted values have three columns: \code{mu}, \code{p}, \code{theta}. Response predictions
+have six columns, in order: \code{mu}, \code{p}, \code{theta}, \code{mean}, \code{variance}, \code{p0}.
+The last three describe the complete response distribution; \code{p0} is its
+actual zero probability, not the probability of structural zeros in ZINB.
+mgcv may omit response-prediction column names; select columns by position.
+Link predictions retain the three original predictor scales.
 Overall response expectations are \code{p*mu} for ZINB and \code{p*mu/(1-q0)} for
 ZANB. Response residuals use these expectations, not the first column.
+
+With \code{se.fit = TRUE}, all six response columns have first-order delta-method
+estimation standard errors, including covariance between all predictors
+and contributions from shared coefficients. These are not predictive
+standard deviations. They condition on smoothing parameters by default;
+\code{unconditional = TRUE} uses mgcv's corrected coefficient covariance when
+available. Predictions are plug-in quantities, without averaging over
+coefficient uncertainty. Distribution callbacks still take the original
+three component parameters: use \code{fitted(fit)} or the first three response
+prediction columns, not all six columns.
 
 REML supports Newton, BFGS and EFS; NCV and QNCV use BFGS. EFS does not
 optimize NCV. \code{bam()} and \code{gamm()} are unsupported. In mgcv 1.9-3,
@@ -66,5 +79,7 @@ b <- mgcv::gam(list(y ~ s(x, k = 6), ~x, ~z),
   family = zinb(), method = "REML"
 )
 head(predict(b, type = "response"))
+pr <- predict(b, type = "response", se.fit = TRUE)
+head(pr$fit[, 4:6]) # complete mean, variance, and zero probability
 head(b$family$rd(fitted(b)))
 }

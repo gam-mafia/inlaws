@@ -15,11 +15,24 @@
 #'   `zanb()` is a hurdle model: zero probability is `1-p`, and positive counts
 #'   follow the zero-truncated NB. Here `mu` always refers to the untruncated NB.
 #'
-#'   Fitted values and response predictions are matrices with columns ordered `mu`,
-#'   `p`, `theta`, including parameter-wise delta-method standard errors.
-#'   Fitted-value columns are named; mgcv may omit response-prediction names.
+#'   Fitted values have three columns: `mu`, `p`, `theta`. Response predictions
+#'   have six columns, in order: `mu`, `p`, `theta`, `mean`, `variance`, `p0`.
+#'   The last three describe the complete response distribution; `p0` is its
+#'   actual zero probability, not the probability of structural zeros in ZINB.
+#'   mgcv may omit response-prediction column names; select columns by position.
+#'   Link predictions retain the three original predictor scales.
 #'   Overall response expectations are `p*mu` for ZINB and `p*mu/(1-q0)` for
 #'   ZANB. Response residuals use these expectations, not the first column.
+#'
+#'   With `se.fit = TRUE`, all six response columns have first-order delta-method
+#'   estimation standard errors, including covariance between all predictors
+#'   and contributions from shared coefficients. These are not predictive
+#'   standard deviations. They condition on smoothing parameters by default;
+#'   `unconditional = TRUE` uses mgcv's corrected coefficient covariance when
+#'   available. Predictions are plug-in quantities, without averaging over
+#'   coefficient uncertainty. Distribution callbacks still take the original
+#'   three component parameters: use `fitted(fit)` or the first three response
+#'   prediction columns, not all six columns.
 #'
 #'   REML supports Newton, BFGS and EFS; NCV and QNCV use BFGS. EFS does not
 #'   optimize NCV. `bam()` and `gamm()` are unsupported. In mgcv 1.9-3,
@@ -51,6 +64,8 @@
 #'   family = zinb(), method = "REML"
 #' )
 #' head(predict(b, type = "response"))
+#' pr <- predict(b, type = "response", se.fit = TRUE)
+#' head(pr$fit[, 4:6]) # complete mean, variance, and zero probability
 #' head(b$family$rd(fitted(b)))
 zinb <- function(link = list("log", "logit", "log")) .zinb_family(link, FALSE)
 
@@ -81,7 +96,7 @@ zanb <- function(link = list("log", "logit", "log")) .zinb_family(link, TRUE)
         colnames(object$fitted.values) <- c("mu", "p", "theta")
         object$null.deviance <- object$family$null.deviance(object, G$offset)
       }),
-      residuals = .zinb_residuals, ncv = .zinb_ncv,
+      residuals = .zinb_residuals, ncv = .zinb_ncv, predict = .zinb_predict,
       null.deviance = .zinb_null,
       sandwich = function(y, X, coef, wt, family, offset = NULL) {
         family$ll(y, X, coef, wt, family, offset = offset, deriv = 1, sandwich = TRUE)$lbb
