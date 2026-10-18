@@ -34,13 +34,25 @@
 #' Sparse components, separation, or almost constant interior responses can
 #' still produce weak identification or convergence problems.
 #'
-#' `predict(fit, type = "response")` returns the complete mean
-#' `p1 + pI * mu`. In contrast, `fit$fitted.values` and the `mu` arguments of
-#' the family distribution methods contain the interior mean. Use
-#' [predict_ordbeta()] for component probabilities or the interior mean.
-#' Prediction standard errors treat nuisance parameters as fixed; even
-#' `unconditional = TRUE` does not add their direct contribution to the
-#' transformation. No full joint uncertainty intervals are provided.
+#' `predict(fit, type = "response")` returns a five-column matrix, in the
+#' order `mu`, `p0`, `pI`, `p1`, `mean`, following [zoibetals()] conventions:
+#' `mu` is the conditional interior beta mean; `p0`, `pI`, and `p1` are the
+#' probabilities of zero, an interior response, and one; `mean = p1 + pI * mu`
+#' is the complete response mean. This replaces the previous vector of complete
+#' means: select column 5 or use [predict_ordbeta()] with `type = "response"`
+#' for that vector. mgcv may discard response column names; the helper restores
+#' them before selecting components. With `se.fit = TRUE`, `fit` and `se.fit`
+#' have the same five columns. Link predictions remain a vector of `eta`.
+#'
+#' `fit$fitted.values` and the `mu` arguments of the family distribution
+#' methods retain the interior mean. Prediction standard errors use the full
+#' coefficient covariance and the delta method, treating fitted precision and
+#' active cutpoints as fixed. Disabled endpoint probabilities and their standard
+#' errors are exactly zero. `unconditional = TRUE` requests mgcv's smoothing
+#' parameter uncertainty correction to the coefficient covariance, when
+#' available; it does not add direct uncertainty in precision or cutpoints.
+#' These are estimation standard errors, not predictive standard deviations
+#' or full joint uncertainty intervals.
 #'
 #' Response and Pearson residuals use the complete mean and variance.
 #' Deviance residuals use the saturated likelihood with nuisance parameters
@@ -70,7 +82,9 @@
 #' d$y[u > 1 - plogis(eta - 1)] <- 1
 #' fit <- mgcv::gam(y ~ s(x, k = 6), data = d,
 #'                  family = ordbeta(), method = "REML")
-#' predict_ordbeta(fit, type = "probabilities")
+#' head(predict(fit, type = "response")) # mu, p0, pI, p1, mean
+#' head(predict_ordbeta(fit)) # complete response mean as a vector
+#' head(predict_ordbeta(fit, type = "probabilities"))
 #' fit$family$getTheta(TRUE)
 ordbeta <- function(link = "logit", start = NULL) {
   if (!identical(link, "logit")) stop("ordbeta supports only the logit link")
@@ -168,9 +182,13 @@ ordbeta <- function(link = "logit", start = NULL) {
     if (is.null(eta)) eta <- drop(X %*% beta) + if (is.null(off)) 0 else off
     p <- .ordbeta_components(eta, family$getTheta(TRUE))
     mu <- stats::plogis(eta)
-    fit <- p[, 3]+p[, 2]*mu
+    fit <- cbind(mu = mu, p, mean = p[, 3]+p[, 2]*mu)
+    colnames(fit) <- c("mu", "p0", "pI", "p1", "mean")
     if (!se) return(list(fit = fit))
-    slope <- .ordbeta_slopes(eta, p)$response
+    # Precision and cutpoints are fixed in this coefficient delta method.
+    slopes <- .ordbeta_slopes(eta, p)
+    slope <- cbind(slopes$conditional, slopes$probabilities, slopes$response)
+    colnames(slope) <- colnames(fit)
     list(fit = fit, se.fit = abs(slope)*sqrt(pmax(0, rowSums((X %*% Vb)*X))))
   }
   cdf <- function(q, mu, wt = 1, scale = 1, logp = FALSE) {
@@ -285,13 +303,20 @@ ordbeta <- function(link = "logit", start = NULL) {
 #' @param newdata Optional prediction data; `NULL` uses the fitting data.
 #' @param type `"response"` for the complete mean, `"conditional"` for the
 #'   interior beta mean, or `"probabilities"` for zero/interior/one probabilities.
-#' @param se.fit Return standard errors treating nuisance parameters as fixed.
+#' @param se.fit Return delta-method standard errors treating fitted precision
+#'   and active cutpoints as fixed.
 #' @param ... Passed to [mgcv::predict.gam()], including `unconditional`,
-#'   `exclude`, and missing-value handling arguments.
-#' @return A vector, or a three-column matrix for probabilities. With
+#'   `exclude`, `na.action`, and `block.size`.
+#' @return A vector, or a three-column matrix named `p0`, `pI`, `p1` for
+#'   probabilities of zero, an interior response, and one, respectively. With
 #'   `se.fit = TRUE`, a list with `fit` and `se.fit` of matching dimensions.
-#' @details See [ordbeta()] for the distinction between the complete and
-#'   interior means and the limitations of conditional standard errors.
+#' @details Selects columns from `predict(object, type = "response")`, restoring
+#'   column names if mgcv discards them. The standard response matrix is ordered
+#'   `mu`, `p0`, `pI`, `p1`, `mean`; the helper's `"conditional"` and `"response"`
+#'   types select `mu` and `mean`, respectively. See [ordbeta()] for interpretation.
+#'   `unconditional = TRUE` can correct the coefficient covariance for smoothing
+#'   parameter uncertainty, but does not add direct uncertainty in fitted
+#'   precision or cutpoints.
 #' @export
 predict_ordbeta <- function(object, newdata = NULL,
                            type = c("response", "conditional", "probabilities"),
@@ -299,15 +324,13 @@ predict_ordbeta <- function(object, newdata = NULL,
   if (!inherits(object, "gam") || !isTRUE(object$family$ordbeta))
     stop("object must be a gam fitted with ordbeta()")
   type <- match.arg(type)
-  args <- list(object = object, type = "link", se.fit = se.fit, ...)
+  args <- list(object = object, type = "response", se.fit = se.fit, ...)
   if (!is.null(newdata)) args$newdata <- newdata
   pred <- do.call(mgcv::predict.gam, args)
-  raw <- if (se.fit) pred$fit else pred
-  eta <- as.numeric(raw)
-  names(eta) <- if (is.null(dim(raw))) names(raw) else dimnames(raw)[[1]]
-  p <- .ordbeta_components(eta, object$family$getTheta(TRUE))
-  fit <- switch(type, response=p[,3]+p[,2]*stats::plogis(eta),
-                conditional=stats::plogis(eta), probabilities=p)
-  if (!se.fit) return(fit)
-  list(fit = fit, se.fit = abs(.ordbeta_slopes(eta, p)[[type]])*as.numeric(pred$se.fit))
+  columns <- switch(type, response = 5L, conditional = 1L, probabilities = 2:4)
+  select <- function(x) {
+    colnames(x) <- c("mu", "p0", "pI", "p1", "mean")
+    x[, columns, drop = length(columns) == 1L]
+  }
+  if (se.fit) list(fit = select(pred$fit), se.fit = select(pred$se.fit)) else select(pred)
 }

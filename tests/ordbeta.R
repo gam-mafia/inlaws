@@ -1,4 +1,4 @@
-library(inlaws)
+library("inlaws")
 
 near <- function(a, b, tol = 1e-7) {
   stopifnot(length(a) == length(b), all(is.finite(a)), all(is.finite(b)),
@@ -18,6 +18,81 @@ expect_error <- function(expr, pattern) {
 }
 make_family <- getFromNamespace(".ordbeta_family", "inlaws")
 components <- getFromNamespace(".ordbeta_components", "inlaws")
+
+# Independent response transformations: do not use the package's component
+# or slope functions, so prediction and numerical Jacobian checks cannot share
+# the implementation's probability or derivative mistakes.
+response_values <- function(eta, par) {
+  mu <- plogis(eta)
+  p0 <- plogis(par[2]-eta)
+  p1 <- plogis(eta-par[3])
+  pI <- plogis(eta-par[2])-plogis(eta-par[3])
+  cbind(mu = mu, p0 = p0, pI = pI, p1 = p1, mean = p1+pI*mu)
+}
+prediction_contract <- function(object, nd) {
+  X <- predict(object, nd, type = "lpmatrix")
+  eta <- drop(X %*% coef(object))+nd$off
+  par <- object$family$getTheta(TRUE)
+  expected <- response_values(eta, par)
+  actual <- predict(object, nd, type = "response", se.fit = TRUE)
+  stopifnot(identical(dim(actual$fit), c(nrow(nd), 5L)),
+            identical(dim(actual$se.fit), dim(actual$fit)))
+  near(actual$fit, expected)
+  near(predict(object, nd, type = "link"), eta)
+  near(predict(object, nd, type = "link", se.fit = TRUE)$se.fit,
+       sqrt(rowSums((X %*% object$Vp)*X)))
+  # Independently perturb coefficients, holding nuisance parameters fixed.
+  h <- 1e-5
+  J <- array(0, c(nrow(nd), 5L, ncol(X)))
+  for (j in seq_len(ncol(X))) {
+    bp <- bm <- coef(object); bp[j] <- bp[j]+h; bm[j] <- bm[j]-h
+    J[, , j] <- (response_values(drop(X %*% bp)+nd$off, par)-
+                  response_values(drop(X %*% bm)+nd$off, par))/(2*h)
+  }
+  for (k in 1:5) {
+    jac <- matrix(J[, k, ], nrow(nd), ncol(X))
+    near(actual$se.fit[, k], sqrt(rowSums((jac %*% object$Vp)*jac)), 1e-7)
+  }
+  for (size in c(1L, 5L, 1000L)) {
+    blocked <- predict(object, nd, type = "response", se.fit = TRUE, block.size = size)
+    near(blocked$fit, actual$fit); near(blocked$se.fit, actual$se.fit)
+    near(predict(object, nd, type = "response", block.size = size), actual$fit)
+    for (type in c("response", "conditional", "probabilities")) {
+      columns <- switch(type, response = 5L, conditional = 1L, probabilities = 2:4)
+      helper <- predict_ordbeta(object, nd, type = type, se.fit = TRUE, block.size = size)
+      near(helper$fit, actual$fit[, columns]); near(helper$se.fit, actual$se.fit[, columns])
+      near(predict_ordbeta(object, nd, type = type, block.size = size), helper$fit)
+      if (type == "probabilities") {
+        stopifnot(identical(colnames(helper$fit), c("p0", "pI", "p1")),
+                  identical(colnames(helper$se.fit), colnames(helper$fit)))
+      } else stopifnot(is.null(dim(helper$fit)), is.null(dim(helper$se.fit)))
+    }
+  }
+  # Direct callback contract: supplied eta takes precedence, and X, beta, off,
+  # and Vb are used without reaching into the fitted object.
+  cb <- object$family$predict
+  direct <- cb(object$family, se = TRUE, X = X, beta = coef(object),
+               off = nd$off, Vb = object$Vp)
+  near(direct$fit, actual$fit); near(direct$se.fit, actual$se.fit)
+  stopifnot(identical(colnames(direct$fit), colnames(expected)),
+            identical(colnames(direct$se.fit), colnames(expected)))
+  supplied <- cb(object$family, se = TRUE, eta = eta, X = X,
+                 beta = coef(object)+1, off = 100, Vb = 4*object$Vp)
+  near(supplied$fit, actual$fit); near(supplied$se.fit, 2*actual$se.fit)
+  near(cb(object$family, eta = eta)$fit, actual$fit)
+  near(cb(object$family, X = X, beta = coef(object))$fit,
+       response_values(drop(X %*% coef(object)), par))
+  near(cb(object$family, X = X, beta = coef(object), off = .3)$fit,
+       response_values(drop(X %*% coef(object))+.3, par))
+  for (column in c(if (!is.finite(par[2])) 2L, if (!is.finite(par[3])) 4L)) {
+    stopifnot(all(actual$fit[, column] == 0), all(actual$se.fit[, column] == 0))
+  }
+  if (object$family$mode == "beta") {
+    stopifnot(all(actual$fit[, 3] == 1), all(actual$se.fit[, 3] == 0))
+    near(actual$fit[, 1], actual$fit[, 5])
+    near(actual$se.fit[, 1], actual$se.fit[, 5])
+  }
+}
 
 # Check all entries of the derivative contract, including packed cross terms.
 for (mode in c("full", "lower", "upper", "beta")) {
@@ -167,6 +242,7 @@ for (mode in c("lower","upper","beta")) {
   if(mode %in% c("upper","beta")) stopifnot(natural[2]==-Inf)
   if(mode %in% c("lower","beta")) stopifnot(natural[3]==Inf)
   near(fit$family$getTheta(TRUE),saved)
+  prediction_contract(g, d[1:12, c("x", "off")])
   if(mode=="beta") {
     reference <- gam(y~x+offset(off),data=sub,family=mgcv::betar(),method="ML")
     near(coef(g),coef(reference),1e-5)
@@ -205,8 +281,24 @@ for (method in c("ML","REML")) {
 }
 uc <- predict_ordbeta(sm,se.fit=TRUE,unconditional=TRUE)
 uc_ref <- predict(sm,type="response",se.fit=TRUE,unconditional=TRUE)
-near(uc$fit,uc_ref$fit); near(uc$se.fit,uc_ref$se.fit)
+near(uc$fit,uc_ref$fit[,5]); near(uc$se.fit,uc_ref$se.fit[,5])
+# The callback must use the covariance supplied by predict.gam(), including Vc.
+X <- predict(sm,type="lpmatrix")
+eta <- drop(X %*% coef(sm)); h <- 1e-5
+slopes <- (response_values(eta+h,sm$family$getTheta(TRUE))-
+             response_values(eta-h,sm$family$getTheta(TRUE)))/(2*h)
+stopifnot(!is.null(sm$Vc))
+near(uc_ref$se.fit,abs(slopes)*sqrt(rowSums((X %*% sm$Vc)*X)),1e-7)
+excluded <- predict(sm,type="response",exclude='s(x)',se.fit=TRUE)
+near(excluded$fit,response_values(rep(coef(sm)[1],nrow(smooth_data)),sm$family$getTheta(TRUE)))
+near(predict_ordbeta(sm,exclude='s(x)'),excluded$fit[,5])
+near(predict_ordbeta(sm,exclude='s(x)',se.fit=TRUE)$se.fit,excluded$se.fit[,5])
 nd <- d[1:12,c("x","off")]
+prediction_contract(fit,nd)
+prediction_contract(fit,nd[1,,drop=FALSE])
+nd_zero <- nd; nd_zero$off <- 0
+prediction_contract(fit,nd_zero)
+near(predict(fit,type="response"),response_values(fit$linear.predictors,fit$family$getTheta(TRUE)))
 lp <- predict(fit,nd,se.fit=TRUE)
 lp <- lapply(lp, as.numeric)
 p <- predict_ordbeta(fit,nd,type="probabilities",se.fit=TRUE)
@@ -215,22 +307,53 @@ pr <- predict_ordbeta(fit,nd,se.fit=TRUE)
 stopifnot(is.null(dim(mu$fit)),is.null(dim(pr$fit)),identical(dim(p$fit),c(nrow(nd),3L)))
 near(rowSums(p$fit),rep(1,nrow(nd)))
 near(pr$fit,p$fit[,3]+p$fit[,2]*mu$fit)
-near(pr$fit,predict(fit,nd,type="response"))
-near(pr$se.fit,predict(fit,nd,type="response",se.fit=TRUE)$se.fit)
+near(pr$fit,predict(fit,nd,type="response")[,5])
+near(pr$se.fit,predict(fit,nd,type="response",se.fit=TRUE)$se.fit[,5])
 near(mu$fit,plogis(lp$fit))
 near(mu$se.fit,plogis(lp$fit)*plogis(-lp$fit)*lp$se.fit)
 h <- 1e-5
 pp <- components(lp$fit+h,fit$family$getTheta(TRUE)); pm <- components(lp$fit-h,fit$family$getTheta(TRUE))
 near(p$se.fit,abs((pp-pm)/(2*h))*lp$se.fit,1e-7)
 near(pr$se.fit,abs((pp[,3]+pp[,2]*plogis(lp$fit+h)-pm[,3]-pm[,2]*plogis(lp$fit-h))/(2*h))*lp$se.fit,1e-7)
-near(residuals(fit,type="response"),d$y-predict(fit,type="response"))
+near(residuals(fit,type="response"),d$y-predict(fit,type="response")[,5])
 near(sum(residuals(fit,type="deviance")^2),deviance(fit),1e-6)
 near(fitted(fit),plogis(predict(fit)))
 nd$x[2] <- NA
 stopifnot(is.na(predict_ordbeta(fit,nd)[2]))
+for (size in c(1L,5L,1000L)) {
+  missing_pred <- predict(fit,nd,type="response",se.fit=TRUE,block.size=size)
+  stopifnot(all(is.na(missing_pred$fit[2,])),all(is.na(missing_pred$se.fit[2,])),
+            identical(rownames(missing_pred$fit),rownames(nd)))
+  keep <- seq_len(nrow(nd)) != 2L
+  omitted <- predict(fit,nd,type="response",se.fit=TRUE,na.action=na.omit,block.size=size)
+  near(omitted$fit,missing_pred$fit[keep,]); near(omitted$se.fit,missing_pred$se.fit[keep,])
+  for (type in c("response","conditional","probabilities")) {
+    cols <- switch(type,response=5L,conditional=1L,probabilities=2:4)
+    helper <- predict_ordbeta(fit,nd,type=type,se.fit=TRUE,block.size=size)
+    stopifnot(identical(unname(is.na(helper$fit)),unname(is.na(missing_pred$fit[,cols]))),
+              identical(unname(is.na(helper$se.fit)),unname(is.na(missing_pred$se.fit[,cols]))))
+    near(helper$fit[!is.na(helper$fit)],missing_pred$fit[,cols][!is.na(helper$fit)])
+    near(helper$se.fit[!is.na(helper$se.fit)],missing_pred$se.fit[,cols][!is.na(helper$se.fit)])
+    helper_omit <- predict_ordbeta(fit,nd,type=type,se.fit=TRUE,na.action=na.omit,block.size=size)
+    near(helper_omit$fit,omitted$fit[,cols]); near(helper_omit$se.fit,omitted$se.fit[,cols])
+  }
+}
 missing <- d; missing$y[1] <- NA
 gm <- gam(y~x+offset(off),data=missing,family=ordbeta(),method="ML",na.action=na.exclude)
 stopifnot(length(predict_ordbeta(gm))==nrow(d),is.na(predict_ordbeta(gm)[1]))
+for (action in list(na.exclude,na.omit)) {
+  gm <- gam(y~x+offset(off),data=missing,family=ordbeta(),method="ML",na.action=action)
+  pred <- predict(gm,type="response",se.fit=TRUE)
+  for (type in c("response","conditional","probabilities")) {
+    cols <- switch(type,response=5L,conditional=1L,probabilities=2:4)
+    helper <- predict_ordbeta(gm,type=type,se.fit=TRUE)
+    stopifnot(identical(unname(is.na(helper$fit)),unname(is.na(pred$fit[,cols]))),
+              identical(unname(is.na(helper$se.fit)),unname(is.na(pred$se.fit[,cols]))))
+    near(helper$fit[!is.na(helper$fit)],pred$fit[,cols][!is.na(pred$fit[,cols])])
+    near(helper$se.fit[!is.na(helper$se.fit)],pred$se.fit[,cols][!is.na(pred$se.fit[,cols])])
+  }
+}
+expect_error(predict_ordbeta(lm(1:5~1)),"gam fitted")
 
 # Distribution callbacks use the interior beta mean, not the response mean.
 for (new in c(FALSE,TRUE)) {

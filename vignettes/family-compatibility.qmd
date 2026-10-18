@@ -117,6 +117,17 @@ does not by itself establish that every fitting route works.
   The censored family accepts the same response encoding as `cgamma()`,
   supports all three predictor offsets, and integrates analytic derivatives
   through order four for censoring probabilities, including at `Q = 0`.
+- **Ordered beta predictions:** `predict(fit, type = "response")` now returns
+  five columns ordered `mu`, `p0`, `pI`, `p1`, `mean`: the interior beta mean,
+  zero/interior/one probabilities, and complete mean `p1 + pI * mu`.
+  This replaces the previous complete-mean vector; use column 5 or
+  `predict_ordbeta(fit)` for that vector. The helper restores names mgcv may
+  discard and also selects `"conditional"` and `"probabilities"`. Standard errors
+  use coefficient covariance with fitted precision and active cutpoints fixed;
+  `unconditional = TRUE` requests smoothing uncertainty correction only.
+  Disabled endpoints have exactly zero probability and standard error.
+  Link predictions remain `eta`, and `fitted.values` remains the interior mean
+  required by distribution callbacks. Tests are in `tests/ordbeta.R`.
 - **Inflated beta:** `zoibetals(inflation = "both")` uses four formulas:
   interior logit mean, log precision, zero logit, one logit. `"zero"` and
   `"one"` use three formulas, fixing the excluded probability to zero.

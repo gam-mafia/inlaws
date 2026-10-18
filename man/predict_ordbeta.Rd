@@ -20,19 +20,26 @@ predict_ordbeta(
 \item{type}{\code{"response"} for the complete mean, \code{"conditional"} for the
 interior beta mean, or \code{"probabilities"} for zero/interior/one probabilities.}
 
-\item{se.fit}{Return standard errors treating nuisance parameters as fixed.}
+\item{se.fit}{Return delta-method standard errors treating fitted precision
+and active cutpoints as fixed.}
 
 \item{...}{Passed to \code{\link[mgcv:predict.gam]{mgcv::predict.gam()}}, including \code{unconditional},
-\code{exclude}, and missing-value handling arguments.}
+\code{exclude}, \code{na.action}, and \code{block.size}.}
 }
 \value{
-A vector, or a three-column matrix for probabilities. With
+A vector, or a three-column matrix named \code{p0}, \code{pI}, \code{p1} for
+probabilities of zero, an interior response, and one, respectively. With
 \code{se.fit = TRUE}, a list with \code{fit} and \code{se.fit} of matching dimensions.
 }
 \description{
 Predict components of an ordered beta GAM
 }
 \details{
-See \code{\link[=ordbeta]{ordbeta()}} for the distinction between the complete and
-interior means and the limitations of conditional standard errors.
+Selects columns from \code{predict(object, type = "response")}, restoring
+column names if mgcv discards them. The standard response matrix is ordered
+\code{mu}, \code{p0}, \code{pI}, \code{p1}, \code{mean}; the helper's \code{"conditional"} and \code{"response"}
+types select \code{mu} and \code{mean}, respectively. See \code{\link[=ordbeta]{ordbeta()}} for interpretation.
+\code{unconditional = TRUE} can correct the coefficient covariance for smoothing
+parameter uncertainty, but does not add direct uncertainty in fitted
+precision or cutpoints.
 }
