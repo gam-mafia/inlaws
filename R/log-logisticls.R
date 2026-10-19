@@ -40,6 +40,7 @@
 #' and AIC include the original-response Jacobian and density constants.
 #' @return A `general.family` object for [mgcv::gam()].
 #' @seealso [log_logistic()]
+#' @template ncv-neighbourhoods
 #' @export
 #' @examples
 #' set.seed(22)
@@ -82,7 +83,7 @@ log_logisticls <- function(link = list("log", "logit")) {
     d2link = 1, d3link = 1, d4link = 1, ls = 1, scale = 1,
     no.r.sq = TRUE, available.derivs = 2L, discrete.ok = FALSE),
     class = c("general.family", "extended.family", "family"))
-  .inlaws_diagnostic_family(family, "log_logisticls")
+  .inlaws_ncv_family(.inlaws_diagnostic_family(family, "log_logisticls"))
 }
 
 .llogls_ll <- function(y, X, coef, wt, family, offset = NULL, deriv = 0,

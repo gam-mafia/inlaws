@@ -66,6 +66,7 @@
 #' AIC include the response Jacobian and density constants.
 #' @references Prentice, R. L. (1974). A log gamma model and its maximum
 #' likelihood estimation. Biometrika 61, 539-544.
+#' @template ncv-neighbourhoods
 #' @export
 #' @examples
 #' set.seed(17)
@@ -121,7 +122,7 @@ gen_gammalss <- function(link = list("log", "log", "log")) {
     d2link = 1, d3link = 1, d4link = 1, ls = 1, scale = 1,
     no.r.sq = TRUE, available.derivs = 2L, discrete.ok = FALSE),
     class = c("general.family", "extended.family", "family"))
-  .inlaws_diagnostic_family(family, "gen_gammalss")
+  .inlaws_ncv_family(.inlaws_diagnostic_family(family, "gen_gammalss"))
 }
 
 .gen_gamma_response <- function(y) {

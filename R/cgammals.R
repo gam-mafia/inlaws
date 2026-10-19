@@ -49,6 +49,7 @@
 #'   null deviance fits a constant mean with fitted dispersions and mean
 #'   offsets retained. Response and Pearson residuals are `NA` for censored
 #'   observations. Mathematical details are in `inst/maths/cgammals.md`.
+#' @template ncv-neighbourhoods
 #' @export
 #' @examples
 #' set.seed(12)
@@ -100,7 +101,7 @@ cgammals <- function(link = list("log", "log"), observe = NULL) {
     d2link = 1, d3link = 1, d4link = 1, ls = 1, scale = 1,
     no.r.sq = TRUE, available.derivs = 2L, discrete.ok = FALSE),
     class = c("general.family", "extended.family", "family"))
-  .inlaws_diagnostic_family(family, "cgammals", observe)
+  .inlaws_ncv_family(.inlaws_diagnostic_family(family, "cgammals", observe))
 }
 
 .cgammals_ll <- function(y, X, coef, wt, family, offset = NULL, deriv = 0,

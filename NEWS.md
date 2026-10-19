@@ -95,7 +95,14 @@
   NCV settings when initializing its family.
 
 * Reject GAM NCV and QNCV for `cgamma()`, `clognormal()`, `cmp()` and
-  `gpoisson()` under mgcv 1.9-4 because of upstream NCV bugs, including
-  censoring information lost during response subsetting. Support will be
-  reassessed with the next mgcv release; no local workaround is maintained.
-  Discrete BAM NCV remains available.
+  `gpoisson()` under mgcv 1.9-4 for independent upstream numerical NCV bugs;
+  the censored families also lose response censoring information during
+  held-out evaluation. Later versions require reassessment. Discrete BAM NCV
+  remains available subject to the shared neighbourhood qualification below.
+
+* Guard explicit NCV neighbourhoods corrupted by mgcv missing-row preprocessing
+  in all NCV-capable general families, including QNCV and `nei` during REML.
+  Correctly adjusted whole-group omissions and default leave-one-out after
+  omission remain available. Document the complete-case/rebuild workaround
+  and the interception limits for extended families, BAM and incomplete
+  neighbourhood lists, whose upstream validation can precede family hooks.

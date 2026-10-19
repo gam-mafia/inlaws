@@ -59,6 +59,7 @@
 #' use the censoring bounds. Mathematical details are in
 #' `inst/maths/cgen-gammalss.md`.
 #' @seealso [gen_gammalss()], [cgamma()], [censoring_process()]
+#' @template ncv-neighbourhoods
 #' @export
 #' @examples
 #' set.seed(31)
@@ -84,7 +85,7 @@ cgen_gammalss <- function(link = list("log", "log", "log"), observe = NULL) {
   family$dev.resids <- .cgen_gamma_deviance
   family$residuals <- .cgen_gamma_residuals
   family$null.deviance <- .cgen_gamma_null_deviance
-  .inlaws_diagnostic_family(family, "cgen_gammalss", observe)
+  .inlaws_ncv_family(.inlaws_diagnostic_family(family, "cgen_gammalss", observe))
 }
 
 .cgen_gamma_response <- function(y) {
