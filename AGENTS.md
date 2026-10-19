@@ -9,6 +9,12 @@ If it is unclear whether a request belongs to the current task, or which branch
 or worktree should be used, ask the user to confirm how to proceed before
 starting the new work.
 
+# Pull requests
+
+Open a pull request only in response to an explicit request from the user.
+Finishing development work, committing changes, merging, or pushing does not
+by itself authorize creating a pull request.
+
 # Maintaining the pkgdown reference index
 
 When adding documentation topics, add them to the manually curated reference
