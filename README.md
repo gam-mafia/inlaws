@@ -33,6 +33,7 @@ vignettes. Building the vignette requires the Quarto CLI and the R package
 | Censored gamma | `cgamma()`, `cgammals()` |
 | Log-logistic mean and scale | `log_logistic()`, `log_logisticls()` |
 | Generalized gamma mean, scale and shape | `gen_gammalss()` |
+| Student-t location, scale and degrees of freedom | `scatlss()` |
 | Censored generalized gamma | `cgen_gammalss()` |
 | Censored log-normal | `clognormal()`, `clognormalls()` |
 | Conway-Maxwell-Poisson | `cmp()`, `cmpls()` |
@@ -79,6 +80,19 @@ allowed for every parameter. `predict_zoibetals()` returns named
 component parameters, probabilities, or complete response moments. It supports
 REML with EFS and randomized quantile diagnostics. See `?zoibetals` and
 `inst/examples/zoibetals.R` for a reproducible comparison with `ordbeta()`.
+
+`scatlss()` adds symmetric Student-t location, scale and degrees-of-freedom
+predictors to `gam()`. Supply three formulae, for example
+`list(y ~ s(x), ~ z, ~ x)`, or use `~ 1` for global scale or df.
+The fixed links are identity, log and `nu = min.df + exp(eta_nu)`, with
+`min.df = 3` by default and finite `min.df > 2` required. Response predictions
+contain `mu`, `sigma`, `nu`; sigma is a scale, with response variance
+`sigma^2 * nu / (nu - 2)`. REML Newton/BFGS and NCV/QNCV BFGS are tested on
+mgcv 1.9-4 using local general-family NCV compatibility measures. A separate
+upstream missing-row preprocessing defect can corrupt explicit neighbourhoods;
+affected requests error with instructions to clean rows and rebuild `nei`. See
+`?scatlss`, the compatibility vignette, and `inst/examples/scatlss.R` for
+covariate-dependent tail weight and limitations.
 
 The package contains families and their distribution callbacks, without general
 simulation or quantile wrappers for fitted models. Callback parameter scales and

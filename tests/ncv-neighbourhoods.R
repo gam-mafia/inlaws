@@ -103,7 +103,7 @@ if (packageVersion("mgcv") == "1.9.4") {
 # Every intended constructor installs the shared early hook. This checks public
 # gam routes too, rather than equating a family field with integration coverage.
 constructors <- list(betals, betabinomial, cgammals, clognormalls,
-  log_logisticls, cmpls, pigls, gen_gammalss, cgen_gammalss, zinb, zanb)
+  log_logisticls, cmpls, pigls, gen_gammalss, cgen_gammalss, scatlss, zinb, zanb)
 for (constructor in constructors) {
   fam <- constructor()
   stopifnot(identical(fam$check.nei, guard),

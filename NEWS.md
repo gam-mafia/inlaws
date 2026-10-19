@@ -2,6 +2,16 @@
 
 ## New features
 
+* Added `scatlss()` for Student-t location, scale and degrees-of-freedom
+  predictors, stable density and deviance evaluation, analytic fourth-order
+  derivatives, REML Newton/BFGS and NCV/QNCV BFGS in `gam()`, distribution
+  callbacks and native diagnostics.
+  NCV/QNCV are tested on mgcv 1.9-4 with signed-Hessian deletion solves
+  and local score/jackknife compatibility measures; the extended-family
+  response-subsetting restriction does not apply to this numeric response.
+  Uses the shared structure guard for missing-row neighbourhood preprocessing,
+  retaining valid whole-group omissions.
+
 * Added `betals()` for beta responses with separate logit-mean and
   log-precision smooth predictors, REML and NCV fitting in `gam()`,
   simulation, CDF, quantile, and diagnostic callbacks.
