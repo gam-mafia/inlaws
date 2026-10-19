@@ -58,6 +58,7 @@
 #'   deviance fits a constant mean predictor with fitted sigmas and the mean
 #'   offset retained; it is a conditional mean-fit diagnostic. Response and
 #'   Pearson residuals are `NA` for censored observations.
+#' @template ncv-neighbourhoods
 #' @export
 #' @examples
 #' set.seed(17)
@@ -109,7 +110,7 @@ clognormalls <- function(link = list("log", "log"), observe = NULL) {
     d2link = 1, d3link = 1, d4link = 1, ls = 1, scale = 1,
     no.r.sq = TRUE, available.derivs = 2L, discrete.ok = FALSE),
     class = c("general.family", "extended.family", "family"))
-  .inlaws_diagnostic_family(family, "clognormalls", observe)
+  .inlaws_ncv_family(.inlaws_diagnostic_family(family, "clognormalls", observe))
 }
 
 .clnormalls_ll <- function(y, X, coef, wt, family, offset = NULL, deriv = 0,

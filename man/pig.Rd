@@ -61,6 +61,31 @@ Likelihood and analytic derivatives use a half-integer Bessel recurrence.
 Computation grows with the largest observed count; very large counts may
 be expensive. Mathematical details are in \code{inst/maths/pig.md} in the source.
 }
+\section{NCV neighbourhood preprocessing}{
+
+In mgcv 1.9-4, both \code{gam()} and \code{bam()} can corrupt explicit \code{nei}
+neighbourhoods when the model frame omits incomplete observations. Partial
+group removal can leave stale cumulative boundaries; a set containing no
+omitted index can be emptied accidentally. This shared preprocessing issue
+is separate from family-specific NCV restrictions. In \code{gam()}, extended
+families have no \code{presetup} hook; \code{preinitialize} and \code{initialize} run after upstream
+neighbourhood validation. In \code{bam()}, early link fixing runs before the
+model frame exists, while hooks receiving the processed data run after
+neighbourhood validation. Neither route offers a supported family hook
+for this diagnostic. An upstream validation error is not inlaws guard
+coverage.
+
+For otherwise supported NCV routes, remove incomplete observations using
+all relevant response, predictor, offset and weight variables, apply subset
+selection, then construct \code{nei} using the resulting data's row indices.
+Complete-data neighbourhoods, correctly adjusted whole-group omissions,
+default leave-one-out (\code{nei = NULL}) constructed after omission, and ordinary
+REML without \code{nei} do not encounter this defect. Other documented method
+restrictions still apply. In particular, complete-case filtering does not
+lift an independent GAM NCV restriction. No fix in a later mgcv version is
+presumed; see the family compatibility vignette for the tested versions.
+}
+
 \examples{
 set.seed(12)
 dat <- data.frame(x = runif(200))

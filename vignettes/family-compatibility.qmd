@@ -79,11 +79,13 @@ does not by itself establish that every fitting route works.
   `bam()` NCV uses the working linear model, so its optimum need not match
   `gam()` NCV.
 - **mgcv 1.9-4 GAM NCV restriction:** `cgamma()`, `clognormal()`, `cmp()`
-  and `gpoisson()` reject `gam()` NCV and QNCV requests with an error because
-  of upstream NCV issues, including censoring information lost during response
-  subsetting. No local workaround is maintained. Support will be reassessed
-  with the next mgcv release. The table reflects mgcv 1.9-4; discrete `bam()`
-  NCV uses a separate route and remains supported.
+  and `gpoisson()` reject `gam()` NCV and QNCV requests, including `nei`
+  during REML, for independent upstream numerical NCV issues. The two censored
+  families additionally lose censoring information during held-out response
+  subsetting. Complete-case filtering does not lift these restrictions.
+  The table reflects mgcv 1.9-4; discrete `bam()` NCV remains available,
+  subject to the shared preprocessing qualification below. Later mgcv versions
+  require reassessment rather than an assumption that these issues are fixed.
 - **Fixed likelihood scale:** use `scale = 1` for absolute `bam()` likelihood
   comparisons with these four extended families: mgcv 1.9-4 can mislabel the
   default fixed external scale. This is separate from estimated dispersion.
@@ -163,6 +165,64 @@ does not by itself establish that every fitting route works.
 - **Scope:** `cmp()` is a pure-R reference implementation whose large-data
   performance is unvalidated. No family here has a supported `gamm()` route.
   GCV/UBRE and other unlisted smoothing criteria are outside this summary.
+
+## Explicit neighbourhoods and missing observations
+
+In mgcv 1.9-4, `gam()` and `bam()` call the shared `nanei()` helper after
+model-frame omission when `nei` is supplied. Partial removals can leave the
+cumulative boundaries `ma` and `md` unchanged. If an index set contains no
+omitted row, a separate negative-subscript error can empty that set. This
+affects deletion sets, prediction sets, or both, including different subsets
+and reordered or repeated predictions. It is a preprocessing defect, separate
+from held-out response attributes, signed-curvature deletion updates, QNCV
+scores/offsets and unpenalized jackknife covariance.
+
+`betabinomial()`, `betals()`, `cgammals()`, `clognormalls()`, `cmpls()`,
+`pigls()`, `log_logisticls()`, `gen_gammalss()`, `cgen_gammalss()`, `zinb()` and
+`zanb()` install a shared check in `gam()`'s general-family `presetup` hook.
+It rejects inconsistent adjusted neighbourhoods before upstream validation
+and numerical NCV, including explicit NCV, QNCV and `nei` during REML. Each
+family's independent method restrictions still apply. The check tests the
+adjusted structure on any installed mgcv version; it does not presume a future
+release fixes the defect. It does not reconstruct or change neighbourhoods.
+
+There are limits to interception through supported family hooks:
+
+- Extended families have no `gam()` `presetup` hook. Neighbourhood validation
+  precedes `preinitialize`, `initialize` and link-fixing callbacks. This affects
+  otherwise supported `pig()`, `log_logistic()` and `cumulative_link()` GAM
+  routes, and can preempt the independent GAM NCV rejection for `cgamma()`,
+  `clognormal()`, `cmp()` and `gpoisson()`.
+- `bam()` also calls `nanei()`, but validates explicit NCV neighbourhoods
+  before family hooks. Its supported extended-family discrete NCV routes have
+  the same interception limit. General families do not support `bam()`;
+  `gam(discrete = TRUE)` constructs a BAM setup and has the same early limit.
+- An incomplete `nei` list with omitted observations can fail inside `nanei()`
+  itself, before any family hook. A generic upstream error in any of these
+  cases is **not** successful inlaws guard coverage. There is no supported
+  early family hook to add an informative inlaws error on these routes without
+  intrusive coupling to mgcv internals.
+
+For all otherwise supported routes, the reliable workaround is to apply
+subset selection and remove incomplete observations using **all** relevant
+response, predictor, offset and weight variables, then construct `nei` using
+the resulting data's row indices. Merely supplying neighbourhoods indexed to
+complete cases while leaving incomplete rows in the fitting data still invokes
+the faulty preprocessing. `subset` is applied before omission; explicit indices
+must refer to the selected data, not the original unselected rows.
+
+Complete-data grouped neighbourhoods and default leave-one-out (`nei = NULL`)
+constructed after omission remain supported. Whole-group removals that produce
+correct neighbourhoods are permitted. Ordinary REML without `nei` is unaffected.
+Fitting a precomputed `G` does not run `nanei()` again: construct any new `nei`
+against `G`'s retained rows. Ordering, repetitions and separate deletion and
+prediction sets keep their existing meaning.
+
+`tests/ncv-neighbourhoods.R` checks independent expected contents and boundaries,
+the public `gam()` integration, successful supported fits, independent guard
+preservation, and the interception limits separately. The source audit in
+`inst/maths/ncv-neighbourhood-audit.md` records hook ordering and the pending
+`scatlss()` integration; `scatlss()` is not present in this checkout.
 
 For a conservative starting point, use `gam(..., method = "REML")` with the
 family's documented formula structure. For large-data fitting, the tested

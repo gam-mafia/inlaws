@@ -47,6 +47,7 @@
 #' CDF follows mgcv's spelling. They do not draw uncertain model parameters.
 #' @return An `extended.family` object for [mgcv::gam()] or [mgcv::bam()].
 #' @seealso [log_logisticls()], [stats::Logistic]
+#' @template ncv-neighbourhoods-extended
 #' @export
 #' @examples
 #' set.seed(21)

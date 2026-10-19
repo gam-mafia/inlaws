@@ -51,12 +51,13 @@
 #' in `bam()` for absolute log-likelihood comparisons: mgcv 1.9-4 can
 #' otherwise mislabel the fixed external likelihood scale.
 #'
-#' With mgcv 1.9-4, `gam()` NCV and QNCV requests are rejected because of
-#' upstream NCV issues, including loss of censoring information during
-#' response subsetting. NCV support will be reassessed with the next mgcv
-#' release. No local NCV workaround is supplied. Discrete `bam()` NCV uses
+#' With mgcv 1.9-4, `gam()` NCV and QNCV requests (also via `nei`
+#' during REML) are rejected for separate upstream numerical NCV issues.
+#' These restrictions remain after complete-case filtering. Support must be
+#' reassessed on later mgcv versions. Discrete `bam()` NCV uses
 #' a separate fitting route and remains available.
 #'
+#' @template ncv-neighbourhoods-extended
 #' @export
 #' @examples
 #' set.seed(17)

@@ -50,6 +50,7 @@
 #'   Null deviance fits a constant mean predictor with fitted dispersions
 #'   and mean offsets retained. These are conditional mean-fit diagnostics.
 #' @seealso [cmp()]
+#' @template ncv-neighbourhoods
 #' @export
 #' @examples
 #' set.seed(17)
@@ -98,7 +99,7 @@ cmpls <- function(link = list("log", "log"), control = list()) {
     d2link = 1, d3link = 1, d4link = 1, ls = 1,
     no.r.sq = TRUE, available.derivs = 2L, discrete.ok = FALSE),
     class = c("general.family", "extended.family", "family"))
-  .inlaws_diagnostic_family(family, "cmpls")
+  .inlaws_ncv_family(.inlaws_diagnostic_family(family, "cmpls"))
 }
 
 .cmpls_eta <- function(X, beta, offset) {

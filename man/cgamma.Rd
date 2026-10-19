@@ -74,11 +74,37 @@ mgcv >= 1.9-4 and optimizes a working-model criterion. Use \code{scale = 1}
 in \code{bam()} for absolute log-likelihood comparisons: mgcv 1.9-4 can
 otherwise mislabel the fixed external likelihood scale.
 
-With mgcv 1.9-4, \code{gam()} NCV and QNCV requests are rejected because of
-upstream NCV issues, including loss of censoring information during
-response subsetting. NCV support will be reassessed with the next mgcv
-release. No local NCV workaround is supplied. Discrete \code{bam()} NCV uses
+With mgcv 1.9-4, \code{gam()} NCV and QNCV requests (also via \code{nei}
+during REML) are rejected for separate upstream numerical NCV issues.
+Censored responses also lose censoring information in held-out likelihoods.
+These restrictions remain after complete-case filtering. Support must be
+reassessed on later mgcv versions. Discrete \code{bam()} NCV uses
 a separate fitting route and remains available.
+}
+
+\section{NCV neighbourhood preprocessing}{
+
+In mgcv 1.9-4, both \code{gam()} and \code{bam()} can corrupt explicit \code{nei}
+neighbourhoods when the model frame omits incomplete observations. Partial
+group removal can leave stale cumulative boundaries; a set containing no
+omitted index can be emptied accidentally. This shared preprocessing issue
+is separate from family-specific NCV restrictions. In \code{gam()}, extended
+families have no \code{presetup} hook; \code{preinitialize} and \code{initialize} run after upstream
+neighbourhood validation. In \code{bam()}, early link fixing runs before the
+model frame exists, while hooks receiving the processed data run after
+neighbourhood validation. Neither route offers a supported family hook
+for this diagnostic. An upstream validation error is not inlaws guard
+coverage.
+
+For otherwise supported NCV routes, remove incomplete observations using
+all relevant response, predictor, offset and weight variables, apply subset
+selection, then construct \code{nei} using the resulting data's row indices.
+Complete-data neighbourhoods, correctly adjusted whole-group omissions,
+default leave-one-out (\code{nei = NULL}) constructed after omission, and ordinary
+REML without \code{nei} do not encounter this defect. Other documented method
+restrictions still apply. In particular, complete-case filtering does not
+lift an independent GAM NCV restriction. No fix in a later mgcv version is
+presumed; see the family compatibility vignette for the tested versions.
 }
 
 \examples{

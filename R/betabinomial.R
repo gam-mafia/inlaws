@@ -53,6 +53,7 @@
 #'   These are conditional mean-fit diagnostics. Simulation, CDF, and quantile
 #'   callbacks are not supplied. Mathematical details are in the source file
 #'   `inst/maths/betabinomial.md`.
+#' @template ncv-neighbourhoods
 #' @export
 #' @examples
 #' set.seed(42)
@@ -97,7 +98,7 @@ betabinomial <- function(link = list("logit", "log")) {
     d2link = 1, d3link = 1, d4link = 1, ls = 1,
     available.derivs = 2L, discrete.ok = FALSE),
     class = c("general.family", "extended.family", "family"))
-  .inlaws_diagnostic_family(family, "betabinomial")
+  .inlaws_ncv_family(.inlaws_diagnostic_family(family, "betabinomial"))
 }
 
 .bb_preinitialize <- function(G) {

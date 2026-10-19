@@ -56,6 +56,7 @@
 #' without requiring gratia. Mathematical details are in
 #' `inst/maths/betals.md` in the package source.
 #' @seealso [mgcv::betar()], [ordbeta()], [betabinomial()]
+#' @template ncv-neighbourhoods
 #' @export
 #' @examples
 #' set.seed(42)
@@ -121,7 +122,7 @@ betals <- function(link = list("logit", "log")) {
     ),
     class = c("general.family", "extended.family", "family")
   )
-  .inlaws_diagnostic_family(family, "betals")
+  .inlaws_ncv_family(.inlaws_diagnostic_family(family, "betals"))
 }
 
 .betals_ll <- function(y, X, coef, wt, family, offset = NULL, deriv = 0,

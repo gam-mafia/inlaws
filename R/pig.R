@@ -48,6 +48,7 @@
 #' Likelihood and analytic derivatives use a half-integer Bessel recurrence.
 #' Computation grows with the largest observed count; very large counts may
 #' be expensive. Mathematical details are in `inst/maths/pig.md` in the source.
+#' @template ncv-neighbourhoods-extended
 #' @export
 #' @examples
 #' set.seed(12)

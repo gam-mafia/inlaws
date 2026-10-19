@@ -58,6 +58,7 @@
 #' threshold derivative storage grows quadratically in `R`.
 #' @return An `extended.family` object for [mgcv::gam()] and [mgcv::bam()].
 #' @seealso [mgcv::ocat()], [MASS::polr()]
+#' @template ncv-neighbourhoods-extended
 #' @export
 #' @examples
 #' set.seed(12)
