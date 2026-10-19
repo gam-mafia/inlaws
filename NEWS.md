@@ -2,6 +2,11 @@
 
 ## New features
 
+* Added `hyper_poissonls()` with exact log-mean and log-dispersion predictors
+  for hyper-Poisson counts, shared terms and offsets, REML Newton/BFGS/EFS,
+  NCV/QNCV BFGS, distribution callbacks with stable log tails and CDF-step
+  quantiles, and native gratia diagnostics.
+
 * Added `scatlss()` for Student-t location, scale and degrees-of-freedom
   predictors, stable density and deviance evaluation, analytic fourth-order
   derivatives, REML Newton/BFGS and NCV/QNCV BFGS in `gam()`, distribution

@@ -32,6 +32,7 @@ parameter selection, not simply maximization of an unpenalized likelihood.
 | `clognormalls()` | General | Yes | No | Yes | No / No | No | No / No |
 | `cmp()` | Extended | Yes | Yes | No | Yes / Yes | Yes | Yes / Yes |
 | `cmpls()` | General | Yes | No | Yes | No / No | No | No / No |
+| `hyper_poissonls()` | General | Yes | No | Yes | No / No | No | No / No |
 | `dirichlet()` | General | Yes | No | No | No / No | No | No / No |
 | `dirmult()` | General | Yes | No | No | No / No | No | No / No |
 | `gpoisson()` | Extended | Yes | Yes | No | Yes / Yes | Yes | Yes / Yes |
@@ -55,6 +56,16 @@ does not by itself establish that every fitting route works.
 
 ## Qualifications
 
+- **Hyper-Poisson predictors:** `hyper_poissonls()` models the exact mean and
+  dispersion with log links, offsets and shared coefficients. REML supports
+  Newton, BFGS and EFS; NCV/QNCV use BFGS. EFS requires all smoothing parameters
+  free and unlinked, or all fixed, and uses gamma one. The native CDF, quantile,
+  simulation and gratia diagnostic callbacks describe the response distribution.
+  The shared missing-row neighbourhood guard applies; on mgcv 1.9-4 fully
+  unpenalized NCV/QNCV models require explicit `nei` with `jackknife = FALSE`.
+  Dispersion one gives Poisson; finite dispersion has a restricted variance
+  range at fixed mean and boundary estimates can be weakly identified.
+  Tests are in `tests/hyper-poisson-*.R`.
 - **Beta mean and precision:** `betals()` uses two formulae for logit mean
   and log precision, with smooths and offsets in both. Responses must be
   strictly inside `(0, 1)`. It supports REML Newton/BFGS and NCV, including

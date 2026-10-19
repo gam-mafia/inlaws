@@ -13,6 +13,7 @@ reference:
       - cmp
       - cmpls
       - gpoisson
+      - hyper_poissonls
       - pig
       - pigls
       - nbls
