@@ -52,6 +52,8 @@ NULL
   if (!is.null(observe) && !is.function(observe))
     stop("observe must be a function or NULL", call. = FALSE)
   factory <- function(mu, wt, scale, y, eta) {
+    if (kind == "hyper_poissonls")
+      return(.hp_diagnostics(family, mu, wt, scale, y, eta))
     out <- list()
     count <- kind %in% c("nbls", "cmp", "cmpls", "gpoisson", "pig", "pigls", "mixture")
     censored <- kind %in% c("cgamma", "cgammals", "clognormal", "clognormalls", "cgen_gammalss")

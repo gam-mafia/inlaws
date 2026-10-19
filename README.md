@@ -37,6 +37,7 @@ vignettes. Building the vignette requires the Quarto CLI and the R package
 | Censored generalized gamma | `cgen_gammalss()` |
 | Censored log-normal | `clognormal()`, `clognormalls()` |
 | Conway-Maxwell-Poisson | `cmp()`, `cmpls()` |
+| Hyper-Poisson mean and dispersion | `hyper_poissonls()` |
 | Cumulative-link ordinal | `cumulative_link()` |
 | Dirichlet | `dirichlet()` |
 | Dirichlet-multinomial | `dirmult()` |
