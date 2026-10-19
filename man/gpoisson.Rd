@@ -36,7 +36,6 @@ fixed at one. \code{getTheta(TRUE)} returns phi; \code{getTheta()} returns
 Estimation approaches
 the Poisson boundary without automatically switching models; almost
 Poisson or underdispersed data can give weak dispersion identification.
-\code{bam()} and other smoothing-selection methods have not been validated.
 In mgcv 1.9-4, ML can fail with a LAPACK error for entirely unpenalized
 models when individual observations have negative log-link curvature.
 This is an mgcv zero-column SVD limitation; use REML for such models.
@@ -46,9 +45,9 @@ count must have positive weight for a finite log-mean fit. Prior weights
 multiply likelihood contributions; they do not alter the distribution
 used for simulation or quantiles. Offsets have their usual log-mean
 interpretation. Deviance uses the saturated mean at fixed phi, which
-generally differs from y. The fitting callbacks use observed information
-as an estimate of expected information (exact expected information for
-fixed Poisson).
+generally differs from y. Positive working information uses log-link
+observed curvature with a variance-based lower bound; observed
+likelihood derivatives remain exact (including the Poisson boundary).
 
 Distribution callbacks condition on fitted parameters. The CDF is
 right-continuous and accepts \code{logp = TRUE}. Quantiles at probabilities
@@ -59,6 +58,21 @@ to one million generations; exhausting a limit is an error. Probabilities
 are not renormalized after truncation. Extreme tails remain subject to
 floating-point accuracy.
 }
+\section{Fitting routes and NCV limitations}{
+
+REML and ML are supported in \code{gam()}; REML, ML and fREML in ordinary
+\code{bam()}; and fREML and NCV in discrete \code{bam()}. Discrete NCV requires
+mgcv >= 1.9-4 and optimizes a working-model criterion. Use \code{scale = 1}
+in \code{bam()} for absolute log-likelihood comparisons: mgcv 1.9-4 can
+otherwise mislabel the fixed external likelihood scale.
+
+With mgcv 1.9-4, \code{gam()} NCV and QNCV requests are rejected because of
+upstream NCV issues, including loss of censoring information during
+response subsetting. NCV support will be reassessed with the next mgcv
+release. No local NCV workaround is supplied. Discrete \code{bam()} NCV uses
+a separate fitting route and remains available.
+}
+
 \examples{
 set.seed(12)
 dat <- data.frame(x = runif(200))

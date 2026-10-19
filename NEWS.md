@@ -28,6 +28,10 @@
 
 * Migrated 14 additional mgcv family constructors, their distribution callbacks,
   mathematical notes, and regression tests from mgcvUtils development branches.
+  Extended-family fitting for `cgamma()`, `clognormal()`, `cmp()` and
+  `gpoisson()` now has regression coverage for GAM REML/ML, ordinary
+  BAM REML/ML/fREML and discrete BAM fREML/NCV, with fixed or estimated
+  dispersion, offsets and case weights.
   Native response predictions for `zinb()` and `zanb()` include the complete
   response mean, variance, and zero probability after the original three
   component parameters, with full-covariance delta-method standard errors.
@@ -79,3 +83,19 @@
 
 * Replaced the statmod dependency with internally generated and cached
   Gauss-Legendre quadrature rules for the censored gamma and log-normal families.
+
+## Bug fixes
+
+* Isolate mutable state for `cgamma()`, `clognormal()`, `cmp()` and
+  `gpoisson()` before BAM fitting,
+  preserving constructor objects and earlier fits. Report deviance and
+  likelihood statistics using fitted dispersion, including discrete BAM.
+
+* Stabilize generalized Poisson BAM working information and preserve the
+  NCV settings when initializing its family.
+
+* Reject GAM NCV and QNCV for `cgamma()`, `clognormal()`, `cmp()` and
+  `gpoisson()` under mgcv 1.9-4 because of upstream NCV bugs, including
+  censoring information lost during response subsetting. Support will be
+  reassessed with the next mgcv release; no local workaround is maintained.
+  Discrete BAM NCV remains available.

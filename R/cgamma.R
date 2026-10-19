@@ -406,6 +406,19 @@
 #' @return An object of class `extended.family` and `family` for [mgcv::gam]
 #'   or [mgcv::bam].
 #' @seealso [mgcv::cnorm], [mgcv::cpois], [stats::Gamma]
+#' @section Fitting routes and NCV limitations:
+#' REML and ML are supported in `gam()`; REML, ML and fREML in ordinary
+#' `bam()`; and fREML and NCV in discrete `bam()`. Discrete NCV requires
+#' mgcv >= 1.9-4 and optimizes a working-model criterion. Use `scale = 1`
+#' in `bam()` for absolute log-likelihood comparisons: mgcv 1.9-4 can
+#' otherwise mislabel the fixed external likelihood scale.
+#'
+#' With mgcv 1.9-4, `gam()` NCV and QNCV requests are rejected because of
+#' upstream NCV issues, including loss of censoring information during
+#' response subsetting. NCV support will be reassessed with the next mgcv
+#' release. No local NCV workaround is supplied. Discrete `bam()` NCV uses
+#' a separate fitting route and remains available.
+#'
 #' @export
 #' @examples
 #' set.seed(12)
@@ -508,7 +521,7 @@ cgamma <- function(theta = NULL, link = "log", observe = NULL) {
     if (any(!is.finite(weights)) || any(weights < 0) || !any(weights > 0)) {
       stop("cgamma requires finite non-negative weights with at least one positive weight")
     }
-    mustart <- y
+    mustart <- as.numeric(y)
     left <- rr$censor == -Inf
     mustart[left] <- y[left] / 2
     interval <- !rr$exact & is.finite(rr$hi)
@@ -545,5 +558,5 @@ cgamma <- function(theta = NULL, link = "log", observe = NULL) {
                  n.theta = as.integer(estimate), ini.theta = initial,
                  scale = 1, no.r.sq = TRUE),
             class = c("extended.family", "family"))
-  .inlaws_diagnostic_family(family, "cgamma", observe)
+  .inlaws_diagnostic_family(.inlaws_extended_family(family), "cgamma", observe)
 }

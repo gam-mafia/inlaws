@@ -25,16 +25,16 @@ parameter selection, not simply maximization of an unpenalized likelihood.
 | `betabinomial()` | General | Yes | No | Yes | No / No | No | No / No |
 | `betals()` | General | Yes | No | Yes | No / No | No | No / No |
 | `zoibetals()` | General | Yes | No | No | No / No | No | No / No |
-| `cgamma()` | Extended | Yes | Yes | ? | ? / ? | Yes | Yes / ? |
+| `cgamma()` | Extended | Yes | Yes | No | Yes / Yes | Yes | Yes / Yes |
 | `cgammals()` | General | Yes | No | Yes | No / No | No | No / No |
 | `cgen_gammalss()` | General | Yes | No | Yes | No / No | No | No / No |
-| `clognormal()` | Extended | Yes | Yes | Yes | ? / ? | Yes | Yes / Yes |
+| `clognormal()` | Extended | Yes | Yes | No | Yes / Yes | Yes | Yes / Yes |
 | `clognormalls()` | General | Yes | No | Yes | No / No | No | No / No |
-| `cmp()` | Extended | Yes | ? | ? | ? / ? | ? | ? / ? |
+| `cmp()` | Extended | Yes | Yes | No | Yes / Yes | Yes | Yes / Yes |
 | `cmpls()` | General | Yes | No | Yes | No / No | No | No / No |
 | `dirichlet()` | General | Yes | No | No | No / No | No | No / No |
 | `dirmult()` | General | Yes | No | No | No / No | No | No / No |
-| `gpoisson()` | Extended | Yes | Yes | ? | ? / ? | ? | ? / ? |
+| `gpoisson()` | Extended | Yes | Yes | No | Yes / Yes | Yes | Yes / Yes |
 | `gen_gammalss()` | General | Yes | No | Yes | No / No | No | No / No |
 | `gpd()` | General | Yes | No | No | No / No | No | No / No |
 | `pig()` | Extended | Yes | Yes | Yes | Yes / Yes | Yes | Yes / Yes |
@@ -78,6 +78,15 @@ does not by itself establish that every fitting route works.
   been validated for the other NCV-capable families listed here. Discrete
   `bam()` NCV uses the working linear model, so its optimum need not match
   `gam()` NCV.
+- **mgcv 1.9-4 GAM NCV restriction:** `cgamma()`, `clognormal()`, `cmp()`
+  and `gpoisson()` reject `gam()` NCV and QNCV requests with an error because
+  of upstream NCV issues, including censoring information lost during response
+  subsetting. No local workaround is maintained. Support will be reassessed
+  with the next mgcv release. The table reflects mgcv 1.9-4; discrete `bam()`
+  NCV uses a separate route and remains supported.
+- **Fixed likelihood scale:** use `scale = 1` for absolute `bam()` likelihood
+  comparisons with these four extended families: mgcv 1.9-4 can mislabel the
+  default fixed external scale. This is separate from estimated dispersion.
 - **Censored location-scale families:** `cgammals()` and `clognormalls()`
   use two formulae and support REML and NCV, including grouped neighbourhoods
   and offsets in both predictors. `cgammals()` returns mean and dispersion
@@ -171,3 +180,8 @@ and `tests/pigls-ncv.R`,
 and additional NCV checks in `tests/clognormal-ncv.R` and
 `tests/betabinomial-smoothing.R`. Update this table when adding fitting routes
 or extending their validation.
+
+The four extended-family rows above are additionally covered by
+`tests/extended-family-routes.R` and `tests/extended-family-ncv.R`, including
+fixed and estimated dispersion, offsets, case weights, family reuse, likelihood
+statistics, independent distribution limits and explicit NCV rejection under mgcv 1.9-4.

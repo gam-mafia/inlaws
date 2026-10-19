@@ -39,12 +39,12 @@ Supplying another scale to \code{gam()} is an error. An all-zero response
 among observations with positive weights has no finite log-mean fit
 and is rejected.
 
-Use \code{method = "REML"}. This pure-R reference implementation uses adaptive
+This pure-R reference implementation uses adaptive
 summation and analytic Taylor arithmetic for derivatives. Extreme means
 or dispersion can exhaust numerical limits, which produces an error.
-Large-data performance, \code{bam()}, and other smoothing-selection methods
-have not been validated. Near-deterministic data may not have a finite
-dispersion estimate.
+Large-data performance has not been benchmarked.
+
+Near-deterministic data may not have a finite dispersion estimate.
 
 Prior weights multiply log likelihood contributions; they do not change
 the distribution used by the \code{rd}, \code{qf}, and \code{cdf} callbacks. These
@@ -55,6 +55,21 @@ is infinity for positive means. A zero mean is a point mass at zero.
 
 \code{getTheta(TRUE)} returns nu; \code{getTheta()} returns log(nu).
 }
+\section{Fitting routes and NCV limitations}{
+
+REML and ML are supported in \code{gam()}; REML, ML and fREML in ordinary
+\code{bam()}; and fREML and NCV in discrete \code{bam()}. Discrete NCV requires
+mgcv >= 1.9-4 and optimizes a working-model criterion. Use \code{scale = 1}
+in \code{bam()} for absolute log-likelihood comparisons: mgcv 1.9-4 can
+otherwise mislabel the fixed external likelihood scale.
+
+With mgcv 1.9-4, \code{gam()} NCV and QNCV requests are rejected because of
+upstream NCV issues, including loss of censoring information during
+response subsetting. NCV support will be reassessed with the next mgcv
+release. No local NCV workaround is supplied. Discrete \code{bam()} NCV uses
+a separate fitting route and remains available.
+}
+
 \examples{
 set.seed(17)
 dat <- data.frame(x = runif(60))
