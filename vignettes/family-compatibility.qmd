@@ -36,6 +36,7 @@ parameter selection, not simply maximization of an unpenalized likelihood.
 | `dirmult()` | General | Yes | No | No | No / No | No | No / No |
 | `gpoisson()` | Extended | Yes | Yes | No | Yes / Yes | Yes | Yes / Yes |
 | `gen_gammalss()` | General | Yes | No | Yes | No / No | No | No / No |
+| `scatlss()` | General | Yes | No | Yes | No / No | No | No / No |
 | `gpd()` | General | Yes | No | No | No / No | No | No / No |
 | `pig()` | Extended | Yes | Yes | Yes | Yes / Yes | Yes | Yes / Yes |
 | `pigls()` | General | Yes | No | Yes | No / No | No | No / No |
@@ -73,8 +74,8 @@ does not by itself establish that every fitting route works.
 - **NCV and QNCV:** NCV is approximate neighbourhood cross-validation.
   `betabinomial()` supports row-level neighbourhoods, not automatic
   leave-one-trial-out validation of aggregated binomial counts, and explicitly
-  rejects QNCV. `zinb()`, `zanb()`, `gen_gammalss()` and `cgen_gammalss()` support NCV and
-  QNCV. QNCV has not
+  rejects QNCV. `zinb()`, `zanb()`, `scatlss()`, `gen_gammalss()` and
+  `cgen_gammalss()` support NCV and QNCV. QNCV has not
   been validated for the other NCV-capable families listed here. Discrete
   `bam()` NCV uses the working linear model, so its optimum need not match
   `gam()` NCV.
@@ -116,6 +117,24 @@ does not by itself establish that every fitting route works.
   two formulae and separate coefficients. Both constrain scale to `(0, 1)`;
   variance is infinite at scale >= 0.5, where Pearson residuals are `NA`.
   Tests are in `tests/log-logistic-models.R` and `tests/log-logisticls.R`.
+- **Student-t predictors:** `scatlss(min.df = 3)` models location, scale
+  and df with identity, log and shifted-log links. Use three formulae;
+  `~ 1` in the third estimates global df. Finite `min.df > 2` retains finite
+  response variance `sigma^2 * nu / (nu - 2)`; scale is not the standard
+  deviation. REML Newton/BFGS and NCV/QNCV BFGS, including grouped
+  neighbourhoods and offsets, are tested on mgcv 1.9-4. The numeric response
+  avoids the extended-family attribute-loss defect, including when NCV is
+  requested via `nei` during REML. Signed-Hessian CG deletion solves and local
+  score/gradient and jackknife assembly address separate upstream NCV issues.
+  The shared neighbourhood-preprocessing guard described below also applies
+  to `scatlss()`, preserving valid whole-group omissions and default
+  leave-one-out after omission. Guard rejections are separate from numerical
+  and successful end-to-end validation.
+  Fully unpenalized NCV/QNCV requires explicit `nei` with `jackknife = FALSE`:
+  a separate mgcv 1.9-4 empty-penalty reparameterization defect blocks its
+  jackknife covariance; criterion evaluation and unpenalized REML are supported.
+  Large df and varying scale/tail weight can be weakly identified. No future
+  mgcv fix is assumed. Tests are in `tests/scatlss-*.R`.
 - **Generalized gamma predictors:** `gen_gammalss()` and its censored counterpart
   `cgen_gammalss()` model arithmetic mean,
   Prentice scale and transformed shape with three log-linked predictors.
@@ -178,8 +197,8 @@ from held-out response attributes, signed-curvature deletion updates, QNCV
 scores/offsets and unpenalized jackknife covariance.
 
 `betabinomial()`, `betals()`, `cgammals()`, `clognormalls()`, `cmpls()`,
-`pigls()`, `log_logisticls()`, `gen_gammalss()`, `cgen_gammalss()`, `zinb()` and
-`zanb()` install a shared check in `gam()`'s general-family `presetup` hook.
+`pigls()`, `log_logisticls()`, `gen_gammalss()`, `cgen_gammalss()`, `scatlss()`,
+`zinb()` and `zanb()` install a shared check in `gam()`'s general-family `presetup` hook.
 It rejects inconsistent adjusted neighbourhoods before upstream validation
 and numerical NCV, including explicit NCV, QNCV and `nei` during REML. Each
 family's independent method restrictions still apply. The check tests the
@@ -221,8 +240,9 @@ prediction sets keep their existing meaning.
 `tests/ncv-neighbourhoods.R` checks independent expected contents and boundaries,
 the public `gam()` integration, successful supported fits, independent guard
 preservation, and the interception limits separately. The source audit in
-`inst/maths/ncv-neighbourhood-audit.md` records hook ordering and the pending
-`scatlss()` integration; `scatlss()` is not present in this checkout.
+`inst/maths/ncv-neighbourhood-audit.md` records hook ordering and the shared
+`scatlss()` integration. Its separate signed-deletion, QNCV and jackknife
+numerical checks are in `tests/scatlss-ncv.R`.
 
 For a conservative starting point, use `gam(..., method = "REML")` with the
 family's documented formula structure. For large-data fitting, the tested

@@ -65,7 +65,7 @@ NCV diagnostic calculation, though the preprocessing still runs when supplied.
 
 | Families | Relevant routes | Protection and limits |
 | --- | --- | --- |
-| `betals`, `betabinomial`, `cgammals`, `clognormalls`, `log_logisticls`, `cmpls`, `pigls`, `gen_gammalss`, `cgen_gammalss`, `zinb`, `zanb` | GAM NCV; QNCV where supported; `nei` during REML | Shared presetup guard before validation; incomplete-list errors can precede it. QNCV restrictions are unchanged. |
+| `betals`, `betabinomial`, `cgammals`, `clognormalls`, `log_logisticls`, `cmpls`, `pigls`, `gen_gammalss`, `cgen_gammalss`, `scatlss`, `zinb`, `zanb` | GAM NCV; QNCV where supported; `nei` during REML | Shared presetup guard before validation; incomplete-list errors can precede it. QNCV restrictions are unchanged. |
 | `pig`, `log_logistic`, `cumulative_link` | GAM NCV/QNCV requests and `nei` during REML; discrete BAM NCV | No supported interception before upstream validation. No new inlaws guard coverage claimed. QNCV numerical support must follow existing family qualifications. |
 | `cgamma`, `clognormal`, `cmp`, `gpoisson` | GAM requests as above; discrete BAM NCV | Existing independent GAM rejection in preinitialize on 1.9-4, including complete data/default LOO. Malformed explicit neighbourhoods can fail before that rejection. BAM has the same interception limit. |
 | `dirichlet`, `dirmult`, `gpd`, `nbls`, `zoibetals` | No supported NCV callback/route | Not added to the shared NCV guard. mgcv may warn/reset NCV to REML or an EFS route; a returned fit is not evidence of NCV. Explicit `nei` may still encounter upstream validation before the unsupported request is diagnosed. |
@@ -76,22 +76,20 @@ criterion/NCV values) from informative inlaws rejection and generic upstream
 failure. Existing direct `gam.fit5()` numerical tests are run separately; they
 cannot test model-frame/neighbourhood preprocessing.
 
-## Pending scatlss integration
+## scatlss integration
 
-Read-only inspection of `/Users/gavin/.codex/worktrees/scatlss/inlaws` on
-`gls/scatlss` found uncommitted `R/scatlss.R` and related files. They have not
-merged into this checkout and were not edited. Its constructor has a presetup
-expression calling `family$check.nei(nei, attr(mf, "na.action"))`, followed by
-NCV BFGS optimizer selection; `check.nei` is `.scatlss_check_nei`. The local
-checker tests paired-group counts and final boundaries under mgcv 1.9-4.
+`scatlss()` integrates the shared guard from main `db29cb9` through
+`.inlaws_ncv_family()` after constructing its diagnostic family. The installer
+prepends the shared preprocessing check and preserves its existing presetup
+BFGS optimizer selection. The duplicated `.scatlss_check_nei()` implementation
+and constructor check field/call have been removed. The family uses the
+`ncv-neighbourhoods` roxygen template and appears in the constructor regression
+suite in `tests/ncv-neighbourhoods.R`.
 
-When that branch integrates this change, remove `.scatlss_check_nei`, remove its
-constructor `check.nei` field and its existing presetup check call, retain the
-presetup optimizer selection, and pass the finished family through
-`.inlaws_ncv_family()` (as the other NCV-capable general constructors do).
-The shared installer prepends the check and preserves optimizer selection.
-Add `@template ncv-neighbourhoods` to the help source, replace the duplicated
-preprocessing explanation, and add `scatlss` to the constructor integration
-tests. Keep its independent fully unpenalized jackknife-covariance guard,
-signed-curvature solves and QNCV/offset handling. That branch integration is
-pending, not completed here.
+Its independent fully unpenalized jackknife-covariance guard, signed-curvature
+deletion solves and local QNCV/offset handling remain intact. The shared
+integration tests cover NCV/QNCV and REML-with-`nei` guard routes and installer
+idempotence. Student-t model tests additionally check successful whole-group
+omission against complete-case rebuilt neighbourhoods, and retained BFGS
+selection. Numerical score/gradient, signed-deletion and covariance references
+remain in `tests/scatlss-ncv.R`; they are distinct from preprocessing coverage.

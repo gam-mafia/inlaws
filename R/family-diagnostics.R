@@ -125,6 +125,11 @@ NULL
       out$variance_available <- all(mu[, 3L] > .5)
       out$moment_reason <- "Generalized gamma variance requires r > 0.5 (1 + 2*sigma*Q > 0)."
     }
+    if (kind == "scatlss") {
+      out$continuous <- TRUE
+      out$mean <- m
+      out$variance <- .scatlss_variance(mu)
+    }
     if (kind == "gpd") {
       shape <- mu[, 2L]
       out$continuous <- TRUE

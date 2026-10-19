@@ -17,6 +17,9 @@ reference:
       - pigls
       - nbls
       - zinb
+  - title: Real-valued continuous families
+    contents:
+      - scatlss
   - title: Positive continuous families
     contents:
       - gen_gammalss
