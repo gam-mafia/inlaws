@@ -25,7 +25,6 @@
 #' Estimation approaches
 #' the Poisson boundary without automatically switching models; almost
 #' Poisson or underdispersed data can give weak dispersion identification.
-#' `bam()` and other smoothing-selection methods have not been validated.
 #' In mgcv 1.9-4, ML can fail with a LAPACK error for entirely unpenalized
 #' models when individual observations have negative log-link curvature.
 #' This is an mgcv zero-column SVD limitation; use REML for such models.
@@ -35,9 +34,9 @@
 #' multiply likelihood contributions; they do not alter the distribution
 #' used for simulation or quantiles. Offsets have their usual log-mean
 #' interpretation. Deviance uses the saturated mean at fixed phi, which
-#' generally differs from y. The fitting callbacks use observed information
-#' as an estimate of expected information (exact expected information for
-#' fixed Poisson).
+#' generally differs from y. Positive working information uses log-link
+#' observed curvature with a variance-based lower bound; observed
+#' likelihood derivatives remain exact (including the Poisson boundary).
 #'
 #' Distribution callbacks condition on fitted parameters. The CDF is
 #' right-continuous and accepts `logp = TRUE`. Quantiles at probabilities
@@ -50,6 +49,19 @@
 #' @references Consul, P. C. and Jain, G. C. (1973). A generalization of the
 #'   Poisson distribution. Technometrics, 15, 791--799.
 #'   doi:10.1080/00401706.1973.10489112.
+#' @section Fitting routes and NCV limitations:
+#' REML and ML are supported in `gam()`; REML, ML and fREML in ordinary
+#' `bam()`; and fREML and NCV in discrete `bam()`. Discrete NCV requires
+#' mgcv >= 1.9-4 and optimizes a working-model criterion. Use `scale = 1`
+#' in `bam()` for absolute log-likelihood comparisons: mgcv 1.9-4 can
+#' otherwise mislabel the fixed external likelihood scale.
+#'
+#' With mgcv 1.9-4, `gam()` NCV and QNCV requests are rejected because of
+#' upstream NCV issues, including loss of censoring information during
+#' response subsetting. NCV support will be reassessed with the next mgcv
+#' release. No local NCV workaround is supplied. Discrete `bam()` NCV uses
+#' a separate fitting route and remains available.
+#'
 #' @export
 #' @examples
 #' set.seed(12)
@@ -110,10 +122,21 @@ gpoisson <- function(theta = NULL, link = "log") {
       ans$Dth[active] <- ans$Dth[active] + 2 * wa * sat[, 2]
       if (level > 1) ans$Dth2[active] <- ans$Dth2[active] + 2 * wa * sat[, 3]
     }
-    ans$EDmu2 <- ans$Dmu2
+    # Positive variance-based working information; observed derivatives stay exact.
+    phi <- 1 + exp(theta)
+    ans$EDmu2[active] <- 2 * wa / (phi * ma)
     if (level > 0) {
-      ans$EDmu3 <- ans$Dmu3
-      ans$EDmu2th <- ans$Dmu2th
+      ans$EDmu3[active] <- -2 * wa / (phi * ma^2)
+      ans$EDmu2th[active] <- -ans$EDmu2[active] * stats::plogis(theta)
+    }
+    # Safeguard variance information with observed log-link curvature.
+    # Omitting the score correction here can destabilize bam.
+    observed <- ans$Dmu2[active] + ans$Dmu[active] / ma
+    take <- observed > ans$EDmu2[active]
+    ans$EDmu2[active] <- pmax(observed, ans$EDmu2[active])
+    if (level > 0) {
+      ans$EDmu3[which(active)[take]] <- (ans$Dmu3[active] - 2 * ans$Dmu[active] / ma^2)[take]
+      ans$EDmu2th[which(active)[take]] <- (ans$Dmu2th[active] + ans$Dmuth[active] / ma)[take]
     }
     if (theta == -Inf) {
       ans$EDmu2[active] <- 2 * wa / ma
@@ -153,11 +176,6 @@ gpoisson <- function(theta = NULL, link = "log") {
     if (!any(weights > 0 & y > 0)) stop("gpoisson needs a positive count with positive weight")
     mustart <- y + (y == 0) / 6
   })
-  preinitialize <- function(y, family) {
-    # Rebuild closures for each fit; never retain or modify the template.
-    fresh <- .gpoisson_family(initial, fixed)
-    list(family = mgcv::fix.family.link(fresh))
-  }
   postproc <- function(family, y, prior.weights, fitted, linear.predictors, offset, intercept) {
     obj <- function(b) sum(family$dev.resids(y, exp(b + offset), prior.weights))
     null <- if (!intercept) obj(0) else {
@@ -171,16 +189,16 @@ gpoisson <- function(theta = NULL, link = "log") {
       }
       opt$objective
     }
-    list(null.deviance = null)
+    list(null.deviance = null, deviance = sum(family$dev.resids(y, fitted, prior.weights)))
   }
   lk <- stats::make.link("log")
   family <- structure(list(family = "Generalized Poisson", link = "log",
     linkfun = lk$linkfun, linkinv = lk$linkinv, mu.eta = lk$mu.eta,
     valideta = lk$valideta, validmu = function(mu) all(is.finite(mu) & mu > 0),
     dev.resids = dev.resids, Dd = Dd, ls = ls, aic = aic,
-    initialize = initialize, preinitialize = preinitialize, postproc = postproc,
+    initialize = initialize, postproc = postproc,
     variance = variance, n.theta = as.integer(!fixed), ini.theta = if (poisson) numeric(0) else initial,
     getTheta = getTheta, putTheta = putTheta, scale = 1, rd = rd, cdf = cdf, qf = qf),
     class = c("extended.family", "family"))
-  .inlaws_diagnostic_family(family, "gpoisson")
+  .inlaws_diagnostic_family(.inlaws_extended_family(family), "gpoisson")
 }

@@ -23,12 +23,12 @@
 #'   among observations with positive weights has no finite log-mean fit
 #'   and is rejected.
 #'
-#'   Use `method = "REML"`. This pure-R reference implementation uses adaptive
+#'   This pure-R reference implementation uses adaptive
 #'   summation and analytic Taylor arithmetic for derivatives. Extreme means
 #'   or dispersion can exhaust numerical limits, which produces an error.
-#'   Large-data performance, `bam()`, and other smoothing-selection methods
-#'   have not been validated. Near-deterministic data may not have a finite
-#'   dispersion estimate.
+#'   Large-data performance has not been benchmarked.
+#'
+#'   Near-deterministic data may not have a finite dispersion estimate.
 #'
 #'   Prior weights multiply log likelihood contributions; they do not change
 #'   the distribution used by the `rd`, `qf`, and `cdf` callbacks. These
@@ -44,6 +44,19 @@
 #' @references Huang, A. (2017). Mean-parametrized Conway-Maxwell-Poisson
 #'   regression models for dispersed counts. Statistical Modelling, 17,
 #'   359--380. doi:10.1177/1471082X17697749.
+#' @section Fitting routes and NCV limitations:
+#' REML and ML are supported in `gam()`; REML, ML and fREML in ordinary
+#' `bam()`; and fREML and NCV in discrete `bam()`. Discrete NCV requires
+#' mgcv >= 1.9-4 and optimizes a working-model criterion. Use `scale = 1`
+#' in `bam()` for absolute log-likelihood comparisons: mgcv 1.9-4 can
+#' otherwise mislabel the fixed external likelihood scale.
+#'
+#' With mgcv 1.9-4, `gam()` NCV and QNCV requests are rejected because of
+#' upstream NCV issues, including loss of censoring information during
+#' response subsetting. NCV support will be reassessed with the next mgcv
+#' release. No local NCV workaround is supplied. Discrete `bam()` NCV uses
+#' a separate fitting route and remains available.
+#'
 #' @export
 #' @examples
 #' set.seed(17)
@@ -199,11 +212,6 @@ cmp <- function(theta = NULL, link = "log", control = list()) {
       stop("CMP needs a positive count with positive weight for a finite log-mean fit")
     mustart <- y + (y == 0) / 6
   })
-  # gam() mutates family parameter environments. Clone before each fit so
-  # reusing a constructor object cannot change a previously fitted model.
-  preinitialize <- function(y, family) {
-    list(family = unserialize(serialize(family, NULL)))
-  }
   postproc <- function(family, y, prior.weights, fitted, linear.predictors, offset, intercept) {
     # Convex in the intercept's log-lambda only for a constant mean. Use a
     # scalar mean-link optimisation to accommodate exposure offsets as well.
@@ -216,17 +224,17 @@ cmp <- function(theta = NULL, link = "log", control = list()) {
       width <- width * 2
       if (width > 128) stop("CMP null deviance optimisation failed", call. = FALSE)
     }
-    list(null.deviance = opt$objective)
+    list(null.deviance = opt$objective, deviance = sum(family$dev.resids(y, fitted, prior.weights)))
   }
   lk <- stats::make.link("log")
   family <- structure(list(family = "Conway-Maxwell-Poisson", link = "log",
     linkfun = lk$linkfun, linkinv = lk$linkinv, mu.eta = lk$mu.eta,
     valideta = lk$valideta, validmu = function(mu) all(is.finite(mu) & mu > 0),
     dev.resids = dev.resids, Dd = Dd, ls = ls, aic = aic,
-    initialize = initialize, preinitialize = preinitialize,
+    initialize = initialize,
     postproc = postproc, variance = variance,
     n.theta = as.integer(!fixed), ini.theta = .Theta, getTheta = getTheta,
     putTheta = putTheta, scale = 1, rd = rd, qf = qf, cdf = cdf),
     class = c("extended.family", "family"))
-  .inlaws_diagnostic_family(family, "cmp")
+  .inlaws_diagnostic_family(.inlaws_extended_family(family), "cmp")
 }

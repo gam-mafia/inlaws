@@ -66,6 +66,21 @@ an observation censored to \verb{[l, u]}, draw uniformly between \code{cdf(l, mu
 \code{cdf(u, mu)}, then apply \code{\link[stats:qnorm]{stats::qnorm()}}. Use bounds zero or infinity for
 one-sided censoring. For exact observations use \code{qnorm(cdf(y, mu))}.
 }
+\section{Fitting routes and NCV limitations}{
+
+REML and ML are supported in \code{gam()}; REML, ML and fREML in ordinary
+\code{bam()}; and fREML and NCV in discrete \code{bam()}. Discrete NCV requires
+mgcv >= 1.9-4 and optimizes a working-model criterion. Use \code{scale = 1}
+in \code{bam()} for absolute log-likelihood comparisons: mgcv 1.9-4 can
+otherwise mislabel the fixed external likelihood scale.
+
+With mgcv 1.9-4, \code{gam()} NCV and QNCV requests are rejected because of
+upstream NCV issues, including loss of censoring information during
+response subsetting. NCV support will be reassessed with the next mgcv
+release. No local NCV workaround is supplied. Discrete \code{bam()} NCV uses
+a separate fitting route and remains available.
+}
+
 \examples{
 set.seed(12)
 dat <- data.frame(x = runif(200))
