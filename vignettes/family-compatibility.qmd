@@ -13,7 +13,7 @@ vignette: >
 This is a snapshot of **inlaws** 0.0.0.9000, based on the family
 implementations, help pages, and regression tests in `tests/`, reviewed with
 **mgcv** 1.9-4. The package requires mgcv >= 1.9-3; discrete `bam()` NCV
-requires mgcv >= 1.9-4.
+requires mgcv >= 1.9-4. The Weibull entries were also reviewed with mgcv 1.9-3 and 1.9-5.
 
 **Yes** denotes an implemented route covered by package regression tests;
 **No** denotes an unsupported route; **?** denotes a route that has not been
@@ -43,6 +43,8 @@ parameter selection, not simply maximization of an unpenalized likelihood.
 | `pigls()` | General | Yes | No | Yes | No / No | No | No / No |
 | `log_logistic()` | Extended | Yes | Yes | Yes | Yes / Yes | Yes | Yes / Yes |
 | `log_logisticls()` | General | Yes | No | Yes | No / No | No | No / No |
+| `weibull()` | Extended | Yes | Yes | Yes | Yes / Yes | Yes | Yes / Yes |
+| `weibulls()` | General | Yes | No | Yes | No / No | No | No / No |
 | `nbls()` | General | Yes | No | No | No / No | No | No / No |
 | `cumulative_link()` | Extended | Yes | Yes | Yes | Yes / Yes | Yes | Yes / Yes |
 | `ordbeta()` | Extended | Yes | Yes | No | No / No | No | No / No |
@@ -122,6 +124,25 @@ does not by itself establish that every fitting route works.
   separate log-link predictors in `gam()`, with REML and NCV support.
   Use two formulae; `~ 1` estimates constant dispersion. See `?cmpls` for
   numerical limits and supported prediction and distribution callbacks.
+- **Weibull predictors:** Both families model the arithmetic mean of a positive,
+  uncensored response. `weibulls()` uses two log-linked predictors for mean
+  and shape. In `gam()`, REML uses Newton, BFGS or EFS, and NCV/QNCV use BFGS.
+  With mgcv 1.9-4 and 1.9-5, `scasm()` supports constrained REML via its
+  EFS loop. Its interface and implementation provide no NCV/QNCV route.
+  If all directions of a smooth are constrained, its EFS penalty trace can
+  fail on the empty projected penalty.
+  General-family `nlm` and `optim` dispatch fails in those mgcv versions
+  because the null-model objective scale is unset.
+  `weibull()` uses a single log-mean predictor and a fixed or estimated global
+  shape. In `gam()`, REML uses Newton, BFGS, `nlm`, `optim` or EFS, and ML
+  uses Newton with positive weights. Omit zero-weight rows before `gam()` ML on mgcv through
+  1.9-5 because of its extended-family ML penalty path. GAM NCV/QNCV use BFGS
+  even when mgcv retains the requested optimizer in the result. Ordinary `bam()` uses outer Newton for
+  REML/ML and performance iteration with Newton for fREML. Discrete fREML/NCV
+  use Cholesky-based performance iteration. Discrete NCV uses the working-model
+  neighbourhood criterion. In `bam()`, specify `scale = 1` to correct scale
+  and `logLik()` reporting on mgcv 1.9-4 and 1.9-5. See
+  `tests/weibull-models.R` for fitting, criteria, predictions, and diagnostics.
 - **Log-logistic predictors:** `log_logistic()` models arithmetic mean with a
   log link and estimates or fixes a global logistic scale for `log(Y)`.
   `log_logisticls()` uses log/logit links for mean and varying scale, with
@@ -209,7 +230,7 @@ scores/offsets and unpenalized jackknife covariance.
 
 `betabinomial()`, `betals()`, `cgammals()`, `clognormalls()`, `cmpls()`,
 `pigls()`, `log_logisticls()`, `gen_gammalss()`, `cgen_gammalss()`, `scatlss()`,
-`zinb()` and `zanb()` install a shared check in `gam()`'s general-family `presetup` hook.
+`zinb()`, `zanb()` and `weibulls()` install a shared check in `gam()`'s general-family `presetup` hook.
 It rejects inconsistent adjusted neighbourhoods before upstream validation
 and numerical NCV, including explicit NCV, QNCV and `nei` during REML. Each
 family's independent method restrictions still apply. The check tests the
@@ -220,7 +241,7 @@ There are limits to interception through supported family hooks:
 
 - Extended families have no `gam()` `presetup` hook. Neighbourhood validation
   precedes `preinitialize`, `initialize` and link-fixing callbacks. This affects
-  otherwise supported `pig()`, `log_logistic()` and `cumulative_link()` GAM
+  otherwise supported `pig()`, `log_logistic()`, `weibull()` and `cumulative_link()` GAM
   routes, and can preempt the independent GAM NCV rejection for `cgamma()`,
   `clognormal()`, `cmp()` and `gpoisson()`.
 - `bam()` also calls `nanei()`, but validates explicit NCV neighbourhoods

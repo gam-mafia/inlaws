@@ -26,6 +26,8 @@ reference:
       - gen_gammalss
       - log_logistic
       - log_logisticls
+      - weibull
+      - weibulls
   - title: Censored and extreme-value families
     contents:
       - cgamma

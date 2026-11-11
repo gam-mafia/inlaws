@@ -148,6 +148,19 @@ NULL
       out$variance_available <- all(s < .5)
       out$moment_reason <- "Log-logistic variance requires log-response scale < 0.5."
     }
+    if (kind %in% c("weibull", "weibulls")) {
+      k <- if (is.matrix(mu)) mu[, 2L] else family$getTheta(TRUE)
+      out$continuous <- TRUE
+      out$mean <- m
+      out$variance <- exp(.weibull_log_variance(m, k))
+      out$cdf <- function(q, log_p = FALSE, lower_tail = TRUE)
+        .weibull_probability(q, m, k, lower.tail = lower_tail, log.p = log_p)
+      out$qf <- function(p, log_p = FALSE, lower_tail = TRUE)
+        .weibull_probability(p, m, k, quantile = TRUE, lower.tail = lower_tail, log.p = log_p)
+      out$rd <- function() .weibull_random(m, k)
+      out$diagnostic_residuals <- function(y, type)
+        .weibull_residuals(y, m, k, wt, type)
+    }
     if (kind == "betals") {
       out$continuous <- TRUE
       out$mean <- m

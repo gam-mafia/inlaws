@@ -1,5 +1,5 @@
-# Two-predictor signed-Hessian NCV/QNCV, following scatlss().
-.hp_ncv <- function(X, y, wt, nei, beta, family, llf, H = NULL, Hi = NULL, R = NULL,
+# Two-predictor signed-Hessian NCV/QNCV and coefficient jackknife.
+.inlaws_two_predictor_ncv <- function(X, y, wt, nei, beta, family, llf, H = NULL, Hi = NULL, R = NULL,
                       offset = NULL, dH = NULL, db = NULL, deriv = FALSE, nt = 1) {
   if (is.null(wt)) wt <- rep(1, length(y))
   n <- length(y)
@@ -14,6 +14,9 @@
   })
   f <- family
   f$qapprox <- FALSE
+  # Use the native helper only for deletion updates. Score and differentiate
+  # below, so quadratic NCV need not evaluate a held-out likelihood.
+  f$ll <- function(y, ...) list(l = 0, l1 = matrix(0, length(y), 2L))
   lf <- llf
   lf$gamma <- 1
   native <- utils::getFromNamespace("gamlss.ncv", "mgcv")
@@ -22,18 +25,18 @@
   # Its conjugate-gradient route uses the full signed Hessian instead.
   if (!is.null(R)) { H <- crossprod(R); Hi <- chol2inv(R) }
   R <- NULL
-  ret <- if (deriv < 0) .hp_jackknife(X, nei, beta, lf, H, off) else
+  ret <- if (deriv < 0) .inlaws_two_predictor_jackknife(X, nei, beta, lf, H, off) else
     native(X, y, wt, nei, beta, f, lf, H = H, Hi = Hi, R = NULL,
            offset = off, dH = dH, db = db, deriv = deriv, nt = nt)
   cg_iterations <- ret$error
-  if (any(!is.finite(cg_iterations) | cg_iterations >= 200L)) stop("hyper_poissonls NCV deletion solve failed to converge")
+  if (any(!is.finite(cg_iterations) | cg_iterations >= 200L)) stop(family$family, " NCV deletion solve failed to converge")
   # The CG helper returns iteration counts, whereas gam.fit5 expects a
   # scalar count of failed Cholesky downdates. Keep these distinct.
   ret$error <- 0L
   ecv <- attr(ret$NCV, "eta.cv")
   dcv <- attr(ret$NCV, "deta.cv")
   if (any(!is.finite(ecv)) || (deriv != 0 && any(!is.finite(dcv))))
-    stop("hyper_poissonls NCV deletion solve returned non-finite predictions or derivatives")
+    stop(family$family, " NCV deletion solve returned non-finite predictions or derivatives")
   eta <- sapply(1:2, function(j) drop(X[, jj[[j]], drop = FALSE] %*% beta[jj[[j]]]) + off[[j]])
   base <- family$ll(y, X, beta, wt, family, eta = eta, deriv = if (deriv > 0) 3 else 1, ncv = TRUE)
   ix <- nei$d
@@ -79,7 +82,7 @@
     Vg <- crossprod(g)
   }
   if (!is.finite(score) || any(!is.finite(grad)))
-    stop("hyper_poissonls NCV criterion or gradient is non-finite")
+    stop(family$family, " NCV criterion or gradient is non-finite")
   attr(score, "eta.cv") <- ecv
   if (deriv != 0) attr(score, "deta.cv") <- dcv
   list(NCV = score, NCV1 = grad, error = ret$error, Vg = Vg, cg.iterations = cg_iterations)
@@ -88,7 +91,7 @@
 
 # mgcv's CG helper in 1.9-4 does not initialize its negative-deriv output
 # buffer. Assemble coefficient deletion updates directly for jackknife output.
-.hp_jackknife <- function(X, nei, beta, llf, H, offset) {
+.inlaws_two_predictor_jackknife <- function(X, nei, beta, llf, H, offset) {
   jj <- attr(X, "lpi"); p <- length(beta)
   ecv <- matrix(0, length(nei$d), 2L)
   delta <- matrix(0, length(nei$ma), p)
