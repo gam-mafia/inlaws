@@ -48,6 +48,7 @@ vignettes. Building the vignette requires the Quarto CLI and the R package
 | Configurable zero/one inflated beta | `zoibetals()` |
 | Zero-inflated / hurdle negative binomial | `zinb()`, `zanb()` |
 | Generalized Pareto | `gpd()` |
+| Blended GEV location, spread and shape | `bgevlss()` |
 
 ```r
 library("inlaws")

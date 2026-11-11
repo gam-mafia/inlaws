@@ -2,6 +2,12 @@
 
 ## New features
 
+* Added `bgevlss()` for blended GEV responses with separate location
+  quantile, log-spread and log-shape predictors. Includes analytic
+  fourth-order derivatives, REML Newton/BFGS/EFS and NCV/QNCV BFGS in
+  `gam()`, shape-constrained REML/EFS in `scasm()`, distribution callbacks
+  and native gratia diagnostics.
+
 * Added `hyper_poissonls()` with exact log-mean and log-dispersion predictors
   for hyper-Poisson counts, shared terms and offsets, REML Newton/BFGS/EFS,
   NCV/QNCV BFGS, distribution callbacks with stable log tails and CDF-step

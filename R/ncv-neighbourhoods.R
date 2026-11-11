@@ -33,7 +33,8 @@
   if (identical(family$check.nei, .inlaws_check_ncv_nei)) return(family)
   family$check.nei <- .inlaws_check_ncv_nei
   family$presetup <- as.expression(c(
-    expression(family$check.nei(nei, attr(mf, "na.action"))),
+    expression(if (exists("nei", inherits = FALSE))
+      family$check.nei(nei, attr(mf, "na.action"))),
     family$presetup))
   family
 }

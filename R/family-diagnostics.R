@@ -12,9 +12,9 @@
 #' @details Count families supply CDF left limits, including at zero and between
 #'   integers. Mixture and ordered-beta moments describe the complete response.
 #'   Cumulative-link probability functions use the latent predictor `eta` and
-#'   its moments describe numeric category values. GPD, generalized gamma and
-#'   log-logistic families report whether moments exist; probability diagnostics
-#'   remain available when a required moment is undefined.
+#'   its moments describe numeric category values. Blended GEV, GPD,
+#'   generalized gamma and log-logistic families report whether moments exist.
+#'   Probability diagnostics remain available when a required moment is undefined.
 #'
 #'   Beta-binomial diagnostics describe success counts and require the fitted
 #'   family's trial totals or a two-column success/failure response in `y`.
