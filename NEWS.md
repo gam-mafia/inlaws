@@ -2,6 +2,12 @@
 
 ## New features
 
+* Added `bgevlss()` for blended GEV responses with separate location
+  quantile, log-spread and log-shape predictors. Includes analytic
+  fourth-order derivatives, REML Newton/BFGS/EFS and NCV/QNCV BFGS in
+  `gam()`, shape-constrained REML/EFS in `scasm()`, distribution callbacks
+  and native gratia diagnostics.
+
 * Added `egpdlss()` for extended generalized Pareto model 1 with separate
   scale, tail shape, and bulk shape predictors. Includes distribution and
   gratia diagnostic callbacks, REML with Newton, BFGS and EFS in `gam()`,

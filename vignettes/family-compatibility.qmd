@@ -40,6 +40,7 @@ parameter selection, not simply maximization of an unpenalized likelihood.
 | `scatlss()` | General | Yes | No | Yes | No / No | No | No / No |
 | `gpdlss()` | General | Yes | No | No | No / No | No | No / No |
 | `egpdlss()` | General | Yes | No | Yes | No / No | No | No / No |
+| `bgevlss()` | General | Yes | No | Yes | No / No | No | No / No |
 | `pig()` | Extended | Yes | Yes | Yes | Yes / Yes | Yes | Yes / Yes |
 | `pigls()` | General | Yes | No | Yes | No / No | No | No / No |
 | `log_logistic()` | Extended | Yes | Yes | Yes | Yes / Yes | Yes | Yes / Yes |
@@ -134,7 +135,7 @@ and the criterion, including the QNCV flag.
   `betabinomial()` supports row-level neighbourhoods, not automatic
   leave-one-trial-out validation of aggregated binomial counts, and explicitly
   rejects QNCV. `zinb()`, `zanb()`, `scatlss()`, `gen_gammalss()`,
-  `cgen_gammalss()` and `egpdlss()` support NCV and QNCV. QNCV has not
+  `cgen_gammalss()`, `egpdlss()` and `bgevlss()` support NCV and QNCV. QNCV has not
   been validated for the other NCV-capable families listed here. Discrete
   `bam()` NCV uses the working linear model, so its optimum need not match
   `gam()` NCV.
@@ -213,6 +214,30 @@ and the criterion, including the QNCV flag.
   jackknife covariance; criterion evaluation and unpenalized REML are supported.
   Large df and varying scale/tail weight can be weakly identified. No future
   mgcv fix is assumed. Tests are in `tests/scatlss-*.R`.
+- **Blended GEV predictors:** `bgevlss()` models a location quantile,
+  positive quantile spread and positive tail shape with identity, log and
+  log links. Verified GAM routes on mgcv 1.9-3 to 1.9-5 and constrained
+  `scasm()` on 1.9-4 and 1.9-5.
+
+  | Fitter | REML | NCV | QNCV |
+  |---|---|---|---|
+  | `gam()` | Newton, BFGS, EFS | BFGS | BFGS |
+  | `scasm()` with a monotone smooth | EFS | Unavailable | Unavailable |
+
+  The `scasm()` fitter hardwires REML/EFS, including for a smooth with
+  binding inequalities. Its public interface has no criterion or optimizer
+  selector and has no neighbourhood deletion path. The 1.9-5 fitter can
+  fail in covariance projection when a smooth has no free coefficient
+  directions and fails at setup when no smooth is present.
+  The `gam()` routes use the same signed-Hessian NCV compatibility code
+  as `scatlss()`. The upstream unpenalized jackknife limitation affects
+  mgcv 1.9-3 and 1.9-4.
+  `gam()` EFS requires unlinked free penalties or entirely fixed penalties.
+  mgcv leaves the outer objective scale unset for general families, which
+  prevents REML smoothing selection with its `nlm` and `optim` optimizers.
+  NCV and QNCV dispatch to BFGS.
+  Response mean and variance require shape < 1 and < 0.5, respectively.
+  See `tests/bgevlss-*.R` for distribution and fitting checks.
 - **Generalized gamma predictors:** `gen_gammalss()` and its censored counterpart
   `cgen_gammalss()` model arithmetic mean,
   Prentice scale and transformed shape with three log-linked predictors.
@@ -276,8 +301,8 @@ scores/offsets and unpenalized jackknife covariance.
 
 `betabinomial()`, `betals()`, `cgammals()`, `clognormalls()`, `cmpls()`,
 `pigls()`, `log_logisticls()`, `gen_gammalss()`, `cgen_gammalss()`, `scatlss()`,
-`egpdlss()`, `zinb()`, `zanb()` and `weibulls()` install a shared check in
-the `gam()` general-family `presetup` hook.
+`egpdlss()`, `zinb()`, `zanb()`, `weibulls()` and `bgevlss()` install a shared
+check in the `gam()` general-family `presetup` hook.
 It rejects inconsistent adjusted neighbourhoods before upstream validation
 and numerical NCV, including explicit NCV, QNCV and `nei` during REML. Each
 family's independent method restrictions still apply. The check tests the

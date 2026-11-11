@@ -222,19 +222,6 @@ scatlss <- function(min.df = 3) {
   max(0, ans$value)
 }
 
-.scatlss_eta <- function(X, beta, offset) {
-  if (!is.matrix(X)) stop("scatlss requires ordinary model matrices")
-  jj <- attr(X, "lpi")
-  if (length(jj) != 3L) stop("scatlss requires three formulae")
-  if (anyDuplicated(unlist(jj))) stop("scatlss does not support shared predictor coefficients")
-  eta <- matrix(0, nrow(X), 3L)
-  for (k in 1:3) {
-    eta[, k] <- drop(X[, jj[[k]], drop = FALSE] %*% beta[jj[[k]]])
-    if (length(offset) >= k && !is.null(offset[[k]])) eta[, k] <- eta[, k] + offset[[k]]
-  }
-  eta
-}
-
 .scatlss_ll <- function(y, X, coef, wt, family, offset = NULL, deriv = 0,
                           d1b = 0, d2b = 0, Hp = NULL, rank = 0, fh = NULL,
                           D = NULL, eta = NULL, ncv = FALSE, sandwich = FALSE) {
@@ -251,37 +238,8 @@ scatlss <- function(min.df = 3) {
   r <- family$evaluate(y, eta, order, family$min.df)
   ell <- r$ell * wt; ell[!active, ] <- 0
   if (any(!is.finite(ell))) return(bad())
-  ret <- list()
-  if (deriv) {
-    # mgcv packs symmetric tensors lexicographically, not expand.grid order.
-    packed <- lapply(seq_len(order), function(d) {
-      p <- as.matrix(expand.grid(rep(list(1:3), d)))
-      p <- p[apply(p, 1, function(x) all(diff(x) >= 0)), , drop = FALSE]
-      p <- p[do.call(base::order, as.data.frame(p)), , drop = FALSE]
-      ans <- matrix(0, nrow(eta), nrow(p))
-      for (k in seq_len(nrow(p))) {
-        powers <- tabulate(p[k, ], nbins = 3L)
-        ix <- which(rowSums(abs(sweep(r$powers, 2, powers))) == 0L)
-        ans[, k] <- ell[, ix]*prod(factorial(powers))
-      }
-      ans
-    })
-    l3 <- if (order >= 3L) packed[[3]] else 0
-    l4 <- if (order >= 4L) packed[[4]] else 0
-    contracted <- deriv == 2L && any(lengths(jj) == 1L)
-    # mgcv 1.9-4 drops matrix dimensions in its trace-only route
-    # when a predictor has a single coefficient. Contract the full Hessian
-    # derivative instead, preserving intercept-only scale/shape predictors.
-    gh_deriv <- if (contracted) 2L else deriv - 1L
-    if (!supplied && !is.null(jj)) ret <- mgcv::gamlss.gH(
-      X, jj, packed[[1]], packed[[2]], family$tri$i2,
-      l3 = l3, i3 = family$tri$i3, l4 = l4, i4 = family$tri$i4,
-      d1b = d1b, d2b = d2b, deriv = gh_deriv, fh = fh, D = D, sandwich = sandwich)
-    if (contracted && !supplied) ret$d1H <- vapply(ret$d1H, function(z) sum(z*fh), numeric(1))
-    if (ncv) { ret$l1 <- packed[[1]]; ret$l2 <- packed[[2]]; ret$l3 <- l3
-      if (order >= 4L) ret$l4 <- l4 }
-  }
-  ret$l0 <- ell[, 1]; ret$l <- sum(ret$l0); ret
+  .inlaws_gamlss_jet_ll(ell, r$powers, X, jj, family, supplied, deriv, d1b, d2b,
+                        fh, D, ncv, sandwich)
 }
 
 .scatlss_init <- function(y, x, E, wt, offset, start, min.df) {
@@ -314,6 +272,8 @@ scatlss <- function(min.df = 3) {
   start[jj[[3]]] <- solve_start(3, rep(log(max(2, 5 - min.df)), length(y)))
   start
 }
+
+.scatlss_eta <- function(X, beta, offset) .inlaws_gamlss3_eta(X, beta, offset, "scatlss")
 
 # Three-predictor NCV/QNCV: compiled deletion updates, local score assembly
 # for correct offsets, prediction subsets/reordering and gamma adjustment.

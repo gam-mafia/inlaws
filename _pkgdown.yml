@@ -37,6 +37,7 @@ reference:
       - clognormalls
       - gpdlss
       - egpdlss
+      - bgevlss
   - title: Ordinal and bounded families
     contents:
       - cumulative_link
