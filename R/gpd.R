@@ -50,26 +50,29 @@
 #' Probability-integral-transform residuals can instead be calculated with
 #' `qnorm(family$cdf(excess, fitted(fit)))`.
 #'
+#' `gpd()` is an alias for `gpdlss()`.
+#'
+#' @aliases gpd
 #' @return An mgcv `general.family` object.
 #' @export
 #' @examples
 #' set.seed(12)
 #' d <- data.frame(time = runif(300))
-#' fam <- gpd()
+#' fam <- gpdlss()
 #' pars <- cbind(exp(0.5 * sin(2 * pi * d$time)), 0.1)
 #' d$y <- 10 + fam$rd(pars)
 #' pot <- subset(d, y > 10)
 #' pot$excess <- pot$y - 10
 #' fit <- mgcv::gam(list(excess ~ s(time, k = 6), ~ 1),
-#'                  family = gpd(), data = pot, method = "REML")
+#'                  family = gpdlss(), data = pot, method = "REML")
 #' predict(fit, type = "response")[1:5, ]
 #' fit$family$rd(fitted(fit))[1:5]
 #' fit$family$qf(0.95, fitted(fit))[1:5]
 #' pit <- fit$family$cdf(pot$excess, fitted(fit))
 #' stats::qqnorm(stats::qnorm(pit))
 #' # Unrestricted shape link:
-#' gpd(link = list("log", "identity"))
-gpd <- function(link = list("log", "logshift")) {
+#' gpdlss(link = list("log", "identity"))
+gpdlss <- function(link = list("log", "logshift")) {
   if (!(is.list(link) || is.character(link)) || length(link) != 2L ||
       any(lengths(link) != 1L) ||
       !identical(link[[1L]], "log") ||
@@ -77,22 +80,8 @@ gpd <- function(link = list("log", "logshift")) {
       !link[[2L]] %in% c("logshift", "identity")) {
     stop('gpd requires links "log" and either "logshift" or "identity"')
   }
-  shape <- stats::make.link("identity")
-  shape$d2link <- shape$d3link <- shape$d4link <- function(mu) rep(0, length(mu))
-  if (link[[2L]] == "logshift") {
-    shape$linkfun <- function(mu) log(mu + 0.5)
-    shape$linkinv <- function(eta) exp(eta) - 0.5
-    shape$mu.eta <- function(eta) exp(eta)
-    shape$valideta <- function(eta) all(is.finite(eta))
-    shape$name <- "logshift"
-    shape$d2link <- function(mu) -1 / (mu + 0.5)^2
-    shape$d3link <- function(mu) 2 / (mu + 0.5)^3
-    shape$d4link <- function(mu) -6 / (mu + 0.5)^4
-  }
-  scale <- stats::make.link("log")
-  scale$d2link <- function(mu) -1 / mu^2
-  scale$d3link <- function(mu) 2 / mu^3
-  scale$d4link <- function(mu) -6 / mu^4
+  scale <- .gpd_log_link()
+  shape <- .gpd_shape_link(link[[2L]])
   family <- structure(list(
     family = "gpd", link = unlist(link), nlp = 2L,
     linfo = list(scale, shape), tri = mgcv::trind.generator(2),
@@ -113,31 +102,67 @@ gpd <- function(link = list("log", "logshift")) {
   .inlaws_diagnostic_family(family, "gpd")
 }
 
+#' @rdname gpdlss
+#' @export
+gpd <- gpdlss
+
+.gpd_shape_link <- function(name) {
+  shape <- stats::make.link("identity")
+  shape$d2link <- shape$d3link <- shape$d4link <- function(mu) rep(0, length(mu))
+  if (name == "logshift") {
+    shape$linkfun <- function(mu) log(mu + 0.5)
+    shape$linkinv <- function(eta) exp(eta) - 0.5
+    shape$mu.eta <- function(eta) exp(eta)
+    shape$valideta <- function(eta) all(is.finite(eta))
+    shape$name <- "logshift"
+    shape$d2link <- function(mu) -1 / (mu + 0.5)^2
+    shape$d3link <- function(mu) 2 / (mu + 0.5)^3
+    shape$d4link <- function(mu) -6 / (mu + 0.5)^4
+  }
+  shape
+}
+
+.gpd_log_link <- function() {
+  link <- stats::make.link("log")
+  link$d2link <- function(mu) -1 / mu^2
+  link$d3link <- function(mu) 2 / mu^3
+  link$d4link <- function(mu) -6 / mu^4
+  link
+}
+
 # H = log(1 + xi * t) / xi, with H(t, 0) = t.
 # For pure shape derivatives, the power series in v = xi*t avoids subtractive
 # cancellation. Differentiating the series b times gives coefficient
 # (-1)^(j+b) (j+b)! / (j! (j+b+1)) for t^(b+1) v^j.
 # Eighty terms at |v| <= 1/2 suffice through order four in double precision.
-.gpd_H <- function(t, xi, order = 0L) {
+.gpd_H <- function(t, xi, order = 0L, w = 1 + xi * t) {
   v <- xi * t
-  out <- matrix(0, length(t), order + 1L)
+  h <- t
   small <- abs(v) <= 0.5
-  for (b in 0:order) {
+  nonzero <- small & v != 0
+  h[nonzero] <- t[nonzero] * (log1p(v[nonzero]) / v[nonzero])
+  large <- is.infinite(v) & xi > 0
+  h[large] <- (log(xi[large]) + log(t[large])) / xi[large]
+  ordinary <- !small & !large
+  h[ordinary] <- ifelse(v[ordinary] > 0, log1p(v[ordinary]), log(w[ordinary])) /
+    xi[ordinary]
+  out <- matrix(0, length(t), order + 1L)
+  out[, 1L] <- h
+  u <- t / w
+  u[large] <- 1 / xi[large]
+  for (b in seq_len(order)) {
     if (any(small)) {
       z <- v[small]
       s <- numeric(length(z))
       for (j in 80:0) {
-        fac <- if (b == 0L) 1 else prod(j + seq_len(b))
+        fac <- prod(j + seq_len(b))
         s <- s * z + (-1)^(j + b) * fac / (j + b + 1)
       }
       out[small, b + 1L] <- t[small]^(b + 1L) * s
     }
-    if (any(!small)) {
-      k <- !small
-      out[k, b + 1L] <- if (b == 0L) log1p(v[k]) / xi[k] else
-        ((-1)^(b - 1L) * factorial(b - 1L) * (t[k] / (1 + v[k]))^b -
-           b * out[k, b]) / xi[k]
-    }
+    k <- !small
+    out[k, b + 1L] <- ((-1)^(b - 1L) * factorial(b - 1L) * u[k]^b -
+                        b * out[k, b]) / xi[k]
   }
   out
 }
@@ -145,28 +170,36 @@ gpd <- function(link = list("log", "logshift")) {
 # Analytic mixed derivatives in rho = log(sigma) and xi, in mgcv's packed order.
 # For a >= 1, rho derivatives of H are rational functions. Shape derivatives
 # of those rational functions give every mixed derivative through order four.
-.gpd_derivatives <- function(y, rho, xi, order = 4L) {
-  t <- y * exp(-rho)
+.gpd_derivatives <- function(y, rho, xi, order = 4L, hazard = FALSE, w = NULL) {
+  t <- y / exp(rho)
   v <- xi * t
-  w <- 1 + v
-  h0 <- .gpd_H(t, xi, order)
+  if (is.null(w)) w <- 1 + v
+  u <- t / w
+  large <- is.infinite(v) & xi > 0
+  u[large] <- 1 / xi[large]
+  iw <- 1 / w
+  h0 <- .gpd_H(t, xi, order, w)
   H <- function(a, b) {
     if (a == 0L) return(h0[, b + 1L])
-    if (a == 1L) return((-1)^(b + 1L) * factorial(b) * (t / w)^(b + 1L))
-    if (a == 2L) return((-1)^b * factorial(b + 1L) * (t / w)^(b + 1L) / w)
-    if (a == 3L && b == 0L) return(-t * (1 - v) / w^3)
-    if (a == 3L && b == 1L) return(t^2 * (4 - 2 * v) / w^4)
-    t * (1 - 4 * v + v^2) / w^4
+    if (a == 1L) return((-1)^(b + 1L) * factorial(b) * u^(b + 1L))
+    if (a == 2L) return((-1)^b * factorial(b + 1L) * u^(b + 1L) * iw)
+    if (a == 3L && b == 0L) return(-u * iw * (2*iw - 1))
+    if (a == 3L && b == 1L) return(u^2 * iw * (6*iw - 2))
+    u * iw * (1 - 6*iw + 6*iw^2)
   }
   ans <- list(l0 = -rho - (1 + xi) * h0[, 1L])
+  if (hazard) ans$H <- list(h0[, 1L])
   for (d in seq_len(order)) {
-    ans[[paste0("l", d)]] <- vapply(0:d, function(b) {
+    hd <- matrix(0, length(y), d + 1L)
+    ld <- hd
+    for (b in 0:d) {
       a <- d - b
-      -(1 + xi) * H(a, b) - (if (b > 0L) b * H(a, b - 1L) else 0) -
-        as.numeric(a == 1L && b == 0L)
-    }, numeric(length(y)))
-    # vapply simplifies to a vector when there is only one observation.
-    dim(ans[[paste0("l", d)]]) <- c(length(y), d + 1L)
+      hd[, b + 1L] <- H(a, b)
+      ld[, b + 1L] <- -(1 + xi) * hd[, b + 1L] -
+        (if (b > 0L) b * H(a, b - 1L) else as.numeric(a == 1L))
+    }
+    ans[[paste0("l", d)]] <- ld
+    if (hazard) ans$H[[d + 1L]] <- hd
   }
   ans
 }
@@ -174,8 +207,8 @@ gpd <- function(link = list("log", "logshift")) {
 .gpd_eta <- function(X, coef, offset) {
   if (!is.matrix(X)) stop("gpd requires an ordinary model matrix")
   jj <- attr(X, "lpi")
-  eta <- matrix(0, nrow(X), 2L)
-  for (j in 1:2) {
+  eta <- matrix(0, nrow(X), length(jj))
+  for (j in seq_along(jj)) {
     eta[, j] <- X[, jj[[j]], drop = FALSE] %*% coef[jj[[j]]]
     if (length(offset) >= j && !is.null(offset[[j]])) eta[, j] <- eta[, j] + offset[[j]]
   }
@@ -206,6 +239,14 @@ gpd <- function(link = list("log", "logshift")) {
   ds <- .gpd_derivatives(yy, rho, xi, ord)
   l0 <- ds$l0 * wt
   if (!deriv) return(list(l = sum(l0), l0 = l0))
+  .gpd_gH(ds, X, wt, xi, eta, family, ord, deriv, d1b, d2b, fh, D, ncv, sandwich)
+}
+
+# Derivatives are in log scale, natural tail shape and (if present) log kappa.
+.gpd_gH <- function(ds, X, wt, xi, eta, family, ord, deriv, d1b, d2b, fh, D,
+                    ncv, sandwich) {
+  active <- wt > 0
+  l0 <- ds$l0 * wt
   sh <- family$linfo[[2L]]
   es <- eta[, 2L]; es[!active] <- sh$linkfun(0)
   # The first likelihood argument is already log scale, so its link here is
@@ -214,36 +255,62 @@ gpd <- function(link = list("log", "logshift")) {
   g2 <- cbind(0, sh$d2link(xi))
   g3 <- if (ord >= 3L) cbind(0, sh$d3link(xi)) else 0
   g4 <- if (ord >= 4L) cbind(0, sh$d4link(xi)) else 0
+  if (family$nlp == 3L) {
+    ig1 <- cbind(ig1, 1)
+    g2 <- cbind(g2, 0)
+    if (ord >= 3L) g3 <- cbind(g3, 0)
+    if (ord >= 4L) g4 <- cbind(g4, 0)
+  }
   tri <- family$tri
   de <- mgcv::gamlss.etamu(ds$l1 * wt, ds$l2 * wt,
                           if (ord >= 3L) ds$l3 * wt else 0,
                           if (ord >= 4L) ds$l4 * wt else 0,
                           ig1, g2, g3, g4, tri$i2, tri$i3, tri$i4, deriv - 1L)
-  ret <- mgcv::gamlss.gH(X, attr(X, "lpi"), de$l1, de$l2, tri$i2,
-                        l3 = de$l3, i3 = tri$i3, l4 = de$l4, i4 = tri$i4,
-                        d1b = d1b, d2b = d2b, deriv = deriv - 1L,
-                        fh = fh, D = D, sandwich = sandwich)
-  if (ncv) { ret$l1 <- de$l1; ret$l2 <- de$l2; ret$l3 <- de$l3 }
+  jj <- attr(X, "lpi")
+  ret <- list()
+  if (!is.null(jj)) {
+    # The native trace-only path drops dimensions for singleton predictors.
+    # Contract the full Hessian derivative to support intercept-only blocks.
+    contracted <- deriv == 2L && any(lengths(jj) == 1L)
+    gh_deriv <- if (contracted) 2L else deriv - 1L
+    ret <- mgcv::gamlss.gH(X, jj, de$l1, de$l2, tri$i2,
+                          l3 = de$l3, i3 = tri$i3, l4 = de$l4, i4 = tri$i4,
+                          d1b = d1b, d2b = d2b, deriv = gh_deriv,
+                          fh = fh, D = D, sandwich = sandwich)
+    if (contracted) ret$d1H <- vapply(ret$d1H, function(z) sum(z * fh), numeric(1))
+  }
+  if (ncv) {
+    ret$l1 <- de$l1
+    ret$l2 <- de$l2
+    ret$l3 <- de$l3
+    if (ord >= 4L) ret$l4 <- de$l4
+  }
   ret$l <- sum(l0)
   ret$l0 <- l0
   ret
 }
 
 .gpd_start <- function(y, X, wt, offset, start, family) {
+  label <- family$family
+  extended <- family$nlp == 3L
   if (!is.numeric(y) || is.matrix(y) || any(!is.finite(y)) || any(y < 0))
-    stop("gpd requires finite nonnegative excesses")
+    stop(label, " requires finite nonnegative excesses")
   if (is.null(wt)) wt <- rep(1, length(y))
   if (length(wt) != length(y) || any(!is.finite(wt)) || any(wt < 0) || !any(wt > 0))
-    stop("gpd requires finite nonnegative weights with at least one positive weight")
-  if (!any(y[wt > 0] > 0)) stop("gpd requires at least one positive excess with positive weight")
-  if (!is.matrix(X)) stop("gpd requires an ordinary model matrix")
+    stop(label, " requires finite nonnegative weights with at least one positive weight")
+  if (extended && any(y[wt > 0] == 0))
+    stop(label, " requires strictly positive excesses at positive weight")
+  if (!any(y[wt > 0] > 0)) stop(label, " requires at least one positive excess with positive weight")
+  if (!is.matrix(X)) stop(label, " requires an ordinary model matrix")
   if (!is.null(start)) {
     if (length(start) != ncol(X) || any(!is.finite(start)) ||
         !is.finite(family$ll(y, X, start, wt, family, offset)$l))
-      stop("gpd starting coefficients must be finite and put the response within support")
+      stop(label, " starting coefficients must be finite and put the response within support")
     return(start)
   }
   jj <- attr(X, "lpi")
+  if (extended && anyDuplicated(unlist(jj)))
+    stop("egpdlss requires separate coefficient blocks for the three predictors")
   # Project constant, interior parameter targets onto each predictor, allowing
   # offsets and no-intercept designs. Search several scales/shapes and retain
   # the best finite likelihood; never alter the observations to obtain a start.
@@ -256,14 +323,16 @@ gpd <- function(link = list("log", "logshift")) {
   }
   base <- sum(y * (wt / sum(wt)))
   best <- -Inf; ans <- NULL
+  # Both shapes start inside the support. kappa = 1 gives the GPD.
+  b <- numeric(ncol(X))
+  if (extended) b[jj[[3L]]] <- project(numeric(length(y)), 3L)
   for (shape in c(0, 0.1, 0.5)) for (mult in c(1, 2, 10, 100)) {
-    b <- numeric(ncol(X))
     b[jj[[1L]]] <- project(rep(log(base) + log(mult), length(y)), 1L)
     b[jj[[2L]]] <- project(rep(family$linfo[[2L]]$linkfun(shape), length(y)), 2L)
     value <- family$ll(y, X, b, wt, family, offset)$l
     if (is.finite(value) && value > best) { ans <- b; best <- value }
   }
-  if (is.null(ans)) stop("Could not find support-valid gpd starting coefficients; supply start")
+  if (is.null(ans)) stop("Could not find support-valid ", label, " starting coefficients; supply start")
   ans
 }
 
@@ -271,11 +340,12 @@ gpd <- function(link = list("log", "logshift")) {
                          beta = NULL, off = NULL, Vb = NULL) {
   if (is.null(eta)) eta <- .gpd_eta(X, beta, off) else se <- FALSE
   fit <- cbind(scale = exp(eta[, 1L]), shape = family$linfo[[2L]]$linkinv(eta[, 2L]))
+  if (family$nlp == 3L) fit <- cbind(fit, kappa = exp(eta[, 3L]))
   out <- list(fit = fit)
   if (se) {
     jj <- attr(X, "lpi")
     s <- fit
-    for (j in 1:2) {
+    for (j in seq_along(jj)) {
       xj <- X[, jj[[j]], drop = FALSE]
       v <- rowSums((xj %*% Vb[jj[[j]], jj[[j]], drop = FALSE]) * xj)
       s[, j] <- abs(family$linfo[[j]]$mu.eta(eta[, j])) * sqrt(pmax(0, v))
@@ -307,19 +377,23 @@ gpd <- function(link = list("log", "logshift")) {
   end <- good & p == 1
   out[end] <- ifelse(xi[end] < 0, -sigma[end] / xi[end], Inf)
   k <- good & p > 0 & p < 1
-  h <- -log1p(-p[k]); v <- xi[k] * h
+  out[k] <- .gpd_qhazard(-log1p(-p[k]), sigma[k], xi[k])
+  out
+}
+
+# Invert the cumulative hazard. logh can retain a hazard below double range.
+.gpd_qhazard <- function(h, sigma, xi, logh = log(h)) {
+  v <- xi * h
   ratio <- rep(1, length(v)); nz <- v != 0 & abs(v) <= 0.5
   ratio[nz] <- expm1(v[nz]) / v[nz]
-  out[k] <- sigma[k] * h * ratio
-  # Evaluate large-magnitude shape products on the log scale: intermediate
-  # exp(v) or q/sigma can overflow even when the final result is representable.
-  positive <- k; positive[k] <- v > 0.5
-  vp <- v[v > 0.5]
-  out[positive] <- exp(log(sigma[positive]) - log(xi[positive]) +
-                        vp + log1p(-exp(-vp)))
-  negative <- k; negative[k] <- v < -0.5
-  out[negative] <- exp(log(sigma[negative]) - log(-xi[negative]) +
-                        log(-expm1(v[v < -0.5])))
+  out <- sigma * h * ratio
+  tiny <- h < .Machine$double.xmin
+  out[tiny] <- exp(log(sigma[tiny]) + logh[tiny]) * ratio[tiny]
+  # Intermediate exp(v) can overflow even when the final result is finite.
+  pos <- v > 0.5
+  out[pos] <- exp(log(sigma[pos]) - log(xi[pos]) + v[pos] + log1p(-exp(-v[pos])))
+  neg <- v < -0.5
+  out[neg] <- exp(log(sigma[neg]) - log(-xi[neg]) + log(-expm1(v[neg])))
   out
 }
 
@@ -330,21 +404,38 @@ gpd <- function(link = list("log", "logshift")) {
   out <- rep(NA_real_, length(q)); out[a$bad] <- NaN
   good <- !a$missing & !a$bad
   out[good & q <= 0] <- if (logp) -Inf else 0
-  end <- good & (q == Inf | (xi < 0 & q >= -sigma / xi))
+  end <- good & q > 0 & (q == Inf | (xi < 0 & q >= -sigma / xi))
   out[end] <- if (logp) 0 else 1
   k <- good & q > 0 & !end
-  t <- q[k] / sigma[k]
-  h <- rep(Inf, length(t))
-  finite <- is.finite(t)
-  h[finite] <- .gpd_H(t[finite], xi[k][finite])[, 1L]
-  positive <- xi[k] > 0 & (!is.finite(t) | !is.finite(xi[k] * t))
-  if (any(positive)) {
-    logv <- log(xi[k][positive]) + log(q[k][positive]) - log(sigma[k][positive])
-    h[positive] <- (pmax(logv, 0) + log1p(exp(-abs(logv)))) / xi[k][positive]
-  }
-  if (logp) out[k] <- ifelse(h > log(2), log1p(-exp(-h)), log(-expm1(-h))) else
-    out[k] <- -expm1(-h)
+  h <- .gpd_phazard(q[k], sigma[k], xi[k])
+  out[k] <- if (logp) .gpd_logcdf(h) else -expm1(-h)
   out
+}
+
+.gpd_logcdf <- function(h) {
+  ifelse(h > log(2), log1p(-exp(-h)), log(-expm1(-h)))
+}
+
+# The caller has already checked the support and excluded the endpoints.
+.gpd_phazard <- function(q, sigma, xi) {
+  t <- q / sigma
+  v <- xi * t
+  h <- t
+  ordinary <- is.finite(v) & v > -1 & v != 0
+  h[ordinary] <- log1p(v[ordinary]) / xi[ordinary]
+  small <- ordinary & abs(v) <= 0.5
+  h[small] <- t[small] * (log1p(v[small]) / v[small])
+  near_end <- xi < 0 & v <= -1 & is.finite(-sigma / xi)
+  if (any(near_end)) {
+    end <- -sigma[near_end] / xi[near_end]
+    h[near_end] <- log((end - q[near_end]) / end) / xi[near_end]
+  }
+  large <- xi > 0 & !is.finite(v)
+  if (any(large)) {
+    logv <- log(xi[large]) + log(q[large]) - log(sigma[large])
+    h[large] <- (pmax(logv, 0) + log1p(exp(-abs(logv)))) / xi[large]
+  }
+  h
 }
 
 .gpd_rd <- function(mu, wt = NULL, scale = NULL) {

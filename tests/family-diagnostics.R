@@ -82,7 +82,7 @@ near(d$mean, first); near(d$variance, second - first^2)
 near(d$cdf_left(c(0, .5, 1)), c(0, f$cdf(.5, mu)[2], 1 - p1[3]))
 
 # Heavy-tail moment existence is separate from CDF availability.
-d <- diagnostic(gpd(), cbind(2, c(.2, .6, 1.2)))
+d <- diagnostic(gpdlss(), cbind(2, c(.2, .6, 1.2)))
 stopifnot(!d$mean_available, !d$variance_available, is.na(d$mean[3]), is.infinite(d$variance[2]))
 near(d$variance[1], 4 / (.8^2 * .6))
 for (f in list(log_logistic(.6), log_logisticls())) {

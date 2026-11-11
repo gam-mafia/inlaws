@@ -124,7 +124,7 @@ the existing parameter SEs themselves are not erroneous.
   not fabricate newdata count totals. Its fitted offsets and category naming
   state are family-specific; the new NB callback needs no captured training
   state or observed responses.
-* The remaining existing callbacks are `cumulative_link()`, `gpd()`,
+* The remaining existing callbacks are `cumulative_link()`, `gpdlss()`,
   `cmpls()`, `pigls()`, `gen_gammalss()` and the inherited `cgen_gammalss()`
   callback. Their presence is not itself a reason to add callbacks elsewhere.
   In particular, callbacks that just inverse-link and name parameter columns

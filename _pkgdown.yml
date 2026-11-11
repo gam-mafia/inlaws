@@ -33,7 +33,8 @@ reference:
       - cgen_gammalss
       - clognormal
       - clognormalls
-      - gpd
+      - gpdlss
+      - egpdlss
   - title: Ordinal and bounded families
     contents:
       - cumulative_link

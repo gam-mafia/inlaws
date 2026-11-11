@@ -65,10 +65,10 @@ NCV diagnostic calculation, though the preprocessing still runs when supplied.
 
 | Families | Relevant routes | Protection and limits |
 | --- | --- | --- |
-| `betals`, `betabinomial`, `cgammals`, `clognormalls`, `log_logisticls`, `cmpls`, `pigls`, `gen_gammalss`, `cgen_gammalss`, `scatlss`, `zinb`, `zanb` | GAM NCV; QNCV where supported; `nei` during REML | Shared presetup guard before validation; incomplete-list errors can precede it. QNCV restrictions are unchanged. |
+| `betals`, `betabinomial`, `cgammals`, `clognormalls`, `log_logisticls`, `cmpls`, `pigls`, `gen_gammalss`, `cgen_gammalss`, `scatlss`, `egpdlss`, `zinb`, `zanb` | GAM NCV; QNCV where supported; `nei` during REML | Shared presetup guard before validation; incomplete-list errors can precede it. QNCV restrictions are unchanged. |
 | `pig`, `log_logistic`, `cumulative_link` | GAM NCV/QNCV requests and `nei` during REML; discrete BAM NCV | No supported interception before upstream validation. No new inlaws guard coverage claimed. QNCV numerical support must follow existing family qualifications. |
 | `cgamma`, `clognormal`, `cmp`, `gpoisson` | GAM requests as above; discrete BAM NCV | Existing independent GAM rejection in preinitialize on 1.9-4, including complete data/default LOO. Malformed explicit neighbourhoods can fail before that rejection. BAM has the same interception limit. |
-| `dirichlet`, `dirmult`, `gpd`, `nbls`, `zoibetals` | No supported NCV callback/route | Not added to the shared NCV guard. mgcv may warn/reset NCV to REML or an EFS route; a returned fit is not evidence of NCV. Explicit `nei` may still encounter upstream validation before the unsupported request is diagnosed. |
+| `dirichlet`, `dirmult`, `gpdlss`, `nbls`, `zoibetals` | No supported NCV callback/route | Not added to the shared NCV guard. mgcv may warn/reset NCV to REML or an EFS route; a returned fit is not evidence of NCV. Explicit `nei` may still encounter upstream validation before the unsupported request is diagnosed. |
 | `ordbeta` | NCV unsupported; GAM REML/ML only | No new supported NCV route or guard coverage claimed. |
 
 Tests distinguish successful fitting (requested method, convergence and finite

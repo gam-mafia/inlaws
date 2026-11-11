@@ -38,7 +38,8 @@ parameter selection, not simply maximization of an unpenalized likelihood.
 | `gpoisson()` | Extended | Yes | Yes | No | Yes / Yes | Yes | Yes / Yes |
 | `gen_gammalss()` | General | Yes | No | Yes | No / No | No | No / No |
 | `scatlss()` | General | Yes | No | Yes | No / No | No | No / No |
-| `gpd()` | General | Yes | No | No | No / No | No | No / No |
+| `gpdlss()` | General | Yes | No | No | No / No | No | No / No |
+| `egpdlss()` | General | Yes | No | Yes | No / No | No | No / No |
 | `pig()` | Extended | Yes | Yes | Yes | Yes / Yes | Yes | Yes / Yes |
 | `pigls()` | General | Yes | No | Yes | No / No | No | No / No |
 | `log_logistic()` | Extended | Yes | Yes | Yes | Yes / Yes | Yes | Yes / Yes |
@@ -53,6 +54,51 @@ The ordinary `bam()` columns mean `discrete = FALSE`. The final column means
 `discrete = TRUE`: discretization is available with fREML and NCV, not ML or
 ordinary REML. `gam()` does not offer fREML. Support for an extended family
 does not by itself establish that every fitting route works.
+
+## Extended generalized Pareto optimizers
+
+The following smoothing-selection routes for `egpdlss()` were checked with
+mgcv 1.9-5. All fits used at least one free smoothing parameter.
+
+| Entry point | Criterion | Newton | BFGS | EFS |
+|:--|:--|:--:|:--:|:--:|
+| `gam()` | REML | Yes | Yes | Yes |
+| `gam()` | NCV | No | Yes | No |
+| `gam()` | QNCV | No | Yes | No |
+| `scasm()` | REML | No | No | Yes |
+| `scasm()` | NCV | No | No | No |
+| `scasm()` | QNCV | No | No | No |
+
+- For NCV and QNCV, `estimate.gam()` always selects outer BFGS. For QNCV
+  it also sets the family's quadratic approximation flag. The returned
+  `fit$optimizer` can echo the original request even after the switch.
+  Use `optimizer = c("outer", "bfgs")` to make the call match the fit.
+  Exact NCV can have an infinite score if an approximate deletion prediction
+  places a held-out response beyond the fitted upper endpoint, and BFGS
+  can fail if its starting score is infinite. QNCV evaluates a local
+  quadratic approximation to the likelihood.
+- In REML, the general-family branch supplies no objective scaling value to
+  `gam.outer()`. Its additional `nlm` and `optim` routes fail in mgcv 1.9-5
+  with free smoothing parameters, before an inlaws callback can supply that
+  value. EFS with free smoothing parameters uses mgcv's general-family
+  `efsud()`. Inlaws requires all smoothing parameters to be free and unlinked,
+  or all fixed. With all smoothing parameters fixed, no optimizer is needed.
+- `scasm()` calls `scasm.fit()` directly. It uses constrained Newton updates
+  for coefficients and EFS updates for the smoothing parameters, and reports
+  a Laplace REML score. It has no method, neighbourhood or outer optimizer
+  argument, and silently ignores those named arguments in `...` in 1.9-5.
+  General-family hooks supply likelihoods and initial values. There is no
+  hook for replacing the smoothing loop or evaluating a deletion criterion
+  in that loop. Monotone smooths with binding inequalities were tested.
+  A smooth with zero free directions after all its constraints bind can
+  fail in the mgcv 1.9-5 covariance projection. This also occurs with
+  built-in mgcv families.
+- `gpdlss()` is the canonical name for the original two-predictor GPD.
+  `gpd()` remains an alias. Use `egpdlss()` for a third predictor for bulk
+  shape. The new family uses separate coefficient blocks for its predictors.
+
+The regression tests in `tests/egpdlss-fits.R` record actual optimizer calls
+and the criterion, including the QNCV flag.
 
 ## Qualifications
 
@@ -75,7 +121,7 @@ does not by itself establish that every fitting route works.
 - **General families:** mgcv does not support these in `bam()`. In mgcv 1.9-4,
   `gam()` changes an ML request to REML for these families. It also resets NCV
   to REML (with a warning) when the family lacks an NCV callback, as for
-  `gpd()`. A returned model therefore does not prove the requested method ran;
+  `gpdlss()`. A returned model therefore does not prove the requested method ran;
   inspect `fit$method`.
 - **Optimizers:** `zoibetals()` and `dirmult()` use extended Fellner--Schall (`optimizer =
   "efs"`), selected automatically; Newton/BFGS smoothing optimization is not
@@ -85,8 +131,8 @@ does not by itself establish that every fitting route works.
 - **NCV and QNCV:** NCV is approximate neighbourhood cross-validation.
   `betabinomial()` supports row-level neighbourhoods, not automatic
   leave-one-trial-out validation of aggregated binomial counts, and explicitly
-  rejects QNCV. `zinb()`, `zanb()`, `scatlss()`, `gen_gammalss()` and
-  `cgen_gammalss()` support NCV and QNCV. QNCV has not
+  rejects QNCV. `zinb()`, `zanb()`, `scatlss()`, `gen_gammalss()`,
+  `cgen_gammalss()` and `egpdlss()` support NCV and QNCV. QNCV has not
   been validated for the other NCV-capable families listed here. Discrete
   `bam()` NCV uses the working linear model, so its optimum need not match
   `gam()` NCV.
@@ -209,7 +255,8 @@ scores/offsets and unpenalized jackknife covariance.
 
 `betabinomial()`, `betals()`, `cgammals()`, `clognormalls()`, `cmpls()`,
 `pigls()`, `log_logisticls()`, `gen_gammalss()`, `cgen_gammalss()`, `scatlss()`,
-`zinb()` and `zanb()` install a shared check in `gam()`'s general-family `presetup` hook.
+`egpdlss()`, `zinb()` and `zanb()` install a shared check in the `gam()`
+general-family `presetup` hook.
 It rejects inconsistent adjusted neighbourhoods before upstream validation
 and numerical NCV, including explicit NCV, QNCV and `nei` during REML. Each
 family's independent method restrictions still apply. The check tests the

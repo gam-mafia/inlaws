@@ -132,6 +132,15 @@ NULL
       out$mean <- m
       out$variance <- .scatlss_variance(mu)
     }
+    if (kind == "egpdlss") {
+      out <- .egpd_moments(mu)
+      out$continuous <- TRUE
+      out$moment_reason <- "Extended GPD means require shape < 1 and variances require shape < 0.5."
+      out$cdf <- function(q, log_p = FALSE, lower_tail = TRUE)
+        family$cdf(q, mu, wt, scale, logp = log_p, lower.tail = lower_tail)
+      out$qf <- function(p, log_p = FALSE, lower_tail = TRUE)
+        family$qf(p, mu, wt, scale, log.p = log_p, lower.tail = lower_tail)
+    }
     if (kind == "gpd") {
       shape <- mu[, 2L]
       out$continuous <- TRUE

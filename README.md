@@ -47,7 +47,8 @@ vignettes. Building the vignette requires the Quarto CLI and the R package
 | Ordered beta | `ordbeta()` |
 | Configurable zero/one inflated beta | `zoibetals()` |
 | Zero-inflated / hurdle negative binomial | `zinb()`, `zanb()` |
-| Generalized Pareto | `gpd()` |
+| Generalized Pareto | `gpdlss()` |
+| Extended generalized Pareto | `egpdlss()` |
 
 ```r
 library("inlaws")

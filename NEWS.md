@@ -2,6 +2,11 @@
 
 ## New features
 
+* Added `egpdlss()` for extended generalized Pareto model 1 with separate
+  scale, tail shape, and bulk shape predictors. Includes distribution and
+  gratia diagnostic callbacks, REML with Newton, BFGS and EFS in `gam()`,
+  NCV/QNCV with BFGS, and REML with EFS for constrained fits in `scasm()`.
+
 * Added `hyper_poissonls()` with exact log-mean and log-dispersion predictors
   for hyper-Poisson counts, shared terms and offsets, REML Newton/BFGS/EFS,
   NCV/QNCV BFGS, distribution callbacks with stable log tails and CDF-step
@@ -79,6 +84,10 @@
   Constant scale and shape predictors are supported with both REML optimizers.
 
 ## User visible changes
+
+* `gpdlss()` is the canonical name for the generalized Pareto family.
+  `gpd()` remains an exported alias. Previously fitted models retain
+  their family identifier and callbacks.
 
 * `ordbeta()` response predictions now return a five-column matrix ordered
   `mu`, `p0`, `pI`, `p1`, `mean`, following `zoibetals()` conventions. These

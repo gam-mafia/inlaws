@@ -1,4 +1,4 @@
-library(inlaws)
+library("inlaws")
 near <- function(x, y, tol = 1e-7) {
   stopifnot(isTRUE(all.equal(as.numeric(x), as.numeric(y), tolerance = tol)))
 }
@@ -61,7 +61,7 @@ attr(X, "lpi") <- list(1:2, 3:4)
 wt <- c(0, .5, 2, 1)
 off <- list(rep(.15, 4), rep(-.1, 4))
 for (link in c("identity", "logshift")) {
-  fam <- gpd(c("log", link))
+  fam <- gpdlss(c("log", link))
   b <- c(.3, .1, fam$linfo[[2]]$linkfun(.1), .1)
   ll <- function(b, deriv = 0) fam$ll(y, X, b, wt, fam, off, deriv = deriv)
   d <- ll(b, 1)
@@ -89,12 +89,12 @@ for (link in c("identity", "logshift")) {
   }
 }
 
-fam <- gpd()
+fam <- gpdlss()
 stopifnot(inherits(fam, "general.family"), fam$nlp == 2L,
           is.function(fam$cdf), is.function(fam$qf), is.function(fam$rd))
 for (bad in list("log", c("identity", "identity"), c("log", "log"),
                  list("log", NA_character_), list(c("log", "log"), "identity")))
-  expect_error(gpd(bad), "gpd requires links")
+  expect_error(gpdlss(bad), "gpd requires links")
 mu <- cbind(c(.5, 1, 2, 5, 1, 1), c(-.4, 0, 1e-12, .2, 1, 2))
 for (p in c(0, 1e-12, .01, .5, .99, 1 - 1e-12, 1)) {
   q <- fam$qf(p, mu)
@@ -126,7 +126,7 @@ for (shape in c(-.3, 0, .3)) {
     -sum(ll)
   }, method = "Nelder-Mead", control = list(reltol = 1e-12, maxit = 3000))
   for (link in c("identity", "logshift")) {
-    b <- gam(list(y ~ 1, ~ 1), data = d, family = gpd(c("log", link)), method = "REML")
+    b <- gam(list(y ~ 1, ~ 1), data = d, family = gpdlss(c("log", link)), method = "REML")
     near(b$fitted.values[1, ], c(exp(opt$par[1]), opt$par[2]), 2e-4)
     near(as.numeric(logLik(b)), -opt$value, 1e-7)
     stopifnot(all(is.finite(residuals(b))), is.na(b$null.deviance))
@@ -140,7 +140,7 @@ truth <- cbind(exp(.3 + .5 * sin(6 * d$x)), -.2 + .4 * d$x)
 d$y <- fam$rd(truth)
 for (link in c("identity", "logshift")) {
   b <- gam(list(y ~ s(x, k = 5), ~ s(x, k = 4)), data = d,
-           family = gpd(c("log", link)), method = "REML")
+           family = gpdlss(c("log", link)), method = "REML")
   stopifnot(all(is.finite(coef(b))), all(1 + b$fitted.values[, 2] * d$y / b$fitted.values[, 1] > 0),
             mean(abs(log(b$fitted.values[, 1] / truth[, 1]))) < .3)
   pr <- predict(b, type = "response", se.fit = TRUE)
