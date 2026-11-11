@@ -95,7 +95,7 @@ hyper_poissonls <- function(link = list("log", "log"), control = list()) {
   })
   family <- structure(list(family = "hyper_poissonls", link = unlist(link),
     nlp = 2L, linfo = linfo, tri = mgcv::trind.generator(2), control = control,
-    ll = .hp_ll, ncv = .hp_ncv, init = .hp_init,
+    ll = .hp_ll, ncv = .inlaws_two_predictor_ncv, init = .hp_init,
     presetup = expression({
       if (missing(method)) method <- "REML"
       if (!method %in% c("REML", "NCV", "QNCV"))

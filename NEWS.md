@@ -7,6 +7,13 @@
   gratia diagnostic callbacks, REML with Newton, BFGS and EFS in `gam()`,
   NCV/QNCV with BFGS, and REML with EFS for constrained fits in `scasm()`.
 
+* Added `weibulls()` for separate Weibull arithmetic-mean and shape
+  predictors in `gam()` (REML, NCV and QNCV) and `scasm()` (REML/EFS),
+  and `weibull()` for a mean predictor with estimated or fixed global shape
+  in `gam()` and ordinary or discrete `bam()`. Both use the exact positive
+  response likelihood, analytic fourth-order derivatives, and native
+  response-distribution and gratia diagnostic callbacks.
+
 * Added `hyper_poissonls()` with exact log-mean and log-dispersion predictors
   for hyper-Poisson counts, shared terms and offsets, REML Newton/BFGS/EFS,
   NCV/QNCV BFGS, distribution callbacks with stable log tails and CDF-step

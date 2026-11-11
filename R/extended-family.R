@@ -1,8 +1,8 @@
 # Clone before bam retains separate local and G$family references. Replacing
 # the family again in preinitialize would leave its final AIC using old theta.
-.inlaws_extended_preinitialize <- function(y, family) {
+.inlaws_extended_preinitialize <- function(y, family, guard_ncv = TRUE) {
   # mgcv sets qapprox for GAM NCV/QNCV, including NCV requested via nei.
-  if (!is.null(family$qapprox) && utils::packageVersion("mgcv") == "1.9.4")
+  if (guard_ncv && !is.null(family$qapprox) && utils::packageVersion("mgcv") == "1.9.4")
     stop("gam NCV/QNCV is unavailable with mgcv 1.9-4 due to upstream NCV bugs; ",
          "use REML or ML pending reassessment with the next mgcv release", call. = FALSE)
   if (!isTRUE(family$.inlaws_isolated))
