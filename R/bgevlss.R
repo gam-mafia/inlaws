@@ -156,6 +156,12 @@ bgevlss <- function(pa = 0.05, pb = 0.20, alpha = 0.5, beta = 0.5) {
     postproc = expression({
       colnames(object$fitted.values) <- c("location", "spread", "shape")
       object$deviance <- object$null.deviance <- NA_real_
+      if (!is.null(G$Ain)) {
+        # scasm can retain the trial-step AIC when returning the preceding fit.
+        ll <- object$family$ll(object$y, NULL, NULL, object$prior.weights,
+          object$family, eta = object$linear.predictors)$l
+        object$aic <- 2*(sum(object$edf) - ll)
+      }
     }),
     predict = .bgev_predict,
     residuals = function(object, type = c("deviance", "pearson", "response", "scaled.pearson"), ...) {

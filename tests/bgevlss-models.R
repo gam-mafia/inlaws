@@ -11,7 +11,7 @@ f <- bgevlss()
 d$y <- f$rd(cbind(1.5*sin(5*d$x), exp(d$o + .2*d$z), exp(-1.3 + d$o)))
 form <- list(y ~ s(x, k = 6) + offset(o), ~ z + offset(o), ~ offset(o))
 
-validate_prediction <- function(b, data) {
+validate_prediction <- function(b, data, likelihood_tol = 5e-6) {
   mu <- fitted(b)
   stopifnot(identical(colnames(mu), c("location", "spread", "shape")),
             all(is.finite(mu)), all(mu[, 2:3] > 0))
@@ -21,7 +21,7 @@ validate_prediction <- function(b, data) {
   near(response$fit, cbind(link$fit[, 1], exp(link$fit[, 2:3])))
   near(response$se.fit, link$se.fit*cbind(1, mu[, 2:3]), 2e-6)
   lp <- f$ll(data$y, NULL, NULL, b$prior.weights, b$family, eta = link$fit)$l
-  near(as.numeric(logLik(b)), lp, 5e-6)
+  near(as.numeric(logLik(b)), lp, likelihood_tol)
 }
 
 # Reconstruct the Laplace REML criterion in the original coefficient basis.
@@ -136,7 +136,8 @@ if ("scasm" %in% getNamespaceExports("mgcv")) {
   d$y <- f$rd(cbind(4*pmin(d$x, .45) + d$o, exp(d$o + .2*d$z), exp(-1.3 + d$o)))
   constrained <- list(y ~ s(x, bs = "sc", xt = "m+", k = 7) + offset(o),
                       ~ z + offset(o), ~ offset(o))
-  b <- mgcv::scasm(constrained, family = f, data = d)
+  # This tolerance exposes the difference between the final trial and returned fit.
+  b <- mgcv::scasm(constrained, family = f, data = d, control = list(epsilon = 1e-6))
   slack <- drop(b$Ain %*% coef(b) - b$bin)
   stopifnot(identical(b$method, "REML"), identical(b$optimizer, "EFS"),
             isTRUE(b$outer.info$converged), b$outer.info$niter > 1,
@@ -146,7 +147,7 @@ if ("scasm" %in% getNamespaceExports("mgcv")) {
   grid <- data.frame(x = seq(0, 1, length.out = 200), z = .5, o = 0)
   fitted_location <- predict(b, newdata = grid, type = "response")[, 1L]
   stopifnot(min(diff(fitted_location)) > -1e-8, diff(range(fitted_location)) > 1)
-  validate_prediction(b, d)
+  validate_prediction(b, d, likelihood_tol = 1e-10)
 
   for (method in c("NCV", "QNCV")) {
     msg <- tryCatch(mgcv::scasm(constrained, family = f, data = d, method = method),

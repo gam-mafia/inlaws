@@ -7,6 +7,7 @@
   fourth-order derivatives, REML Newton/BFGS/EFS and NCV/QNCV BFGS in
   `gam()`, shape-constrained REML/EFS in `scasm()`, distribution callbacks
   and native gratia diagnostics.
+  Constrained fits report AIC and log likelihood at the returned coefficients.
 
 * Added `egpdlss()` for extended generalized Pareto model 1 with separate
   scale, tail shape, and bulk shape predictors. Includes distribution and
