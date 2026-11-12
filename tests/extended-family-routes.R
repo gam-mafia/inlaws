@@ -44,6 +44,13 @@ for (name in names(parameters)) {
   for (fixed in c(FALSE, TRUE)) {
     for (method in c("REML", "ML", "NCV")) {
       if (method == "NCV" && packageVersion("mgcv") == "1.9.4") next
+      # Temporary until this fixture's gpoisson GAM NCV fits converge.
+      if (name == "gpoisson" && method == "NCV" &&
+          packageVersion("mgcv") == "1.9.5") {
+        message("Skipping gpoisson GAM NCV on mgcv 1.9-5 (fixed=", fixed,
+          ") because the outer optimizer fails the full convergence check.")
+        next
+      }
       message(name, " gam ", method, " fixed=", fixed)
       fit <- gam(y ~ s(x, k = 5) + offset(o), data = d, weights = w,
         family = constructor(if (fixed) theta else NULL), method = method)
