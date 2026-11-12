@@ -77,7 +77,7 @@ parameter estimation uncertainty.
 
 Use the three-column response-scale parameter matrix \code{mu} with
 \code{rd(mu, wt = 1, scale = 1)},
-\code{cdf(q, mu, wt = 1, scale = 1, logp = FALSE, lower.tail = TRUE)} and
+\code{cdf(q, mu, wt = 1, scale = 1, log_p = FALSE, lower.tail = TRUE)} and
 \code{qf(p, mu, wt = 1, scale = 1, lower.tail = TRUE, log.p = FALSE)}.
 Supply a scalar or one value per row for \code{q} or \code{p}. Missing inputs
 propagate. These callbacks ignore weights and external scale and accept

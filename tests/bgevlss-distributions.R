@@ -14,7 +14,7 @@ near(q[p == .5], 2)
 near(q[p == .75] - q[p == .25], 1.4)
 stopifnot(identical(f$qf(c(0, 1), mu[1:2, ]), c(-Inf, Inf)),
           identical(f$qf(c(0, 1), mu[1:2, ], lower.tail = FALSE), c(Inf, -Inf)),
-          identical(f$cdf(c(-Inf, Inf), mu[1:2, ], logp = TRUE), c(-Inf, 0)),
+          identical(f$cdf(c(-Inf, Inf), mu[1:2, ], log_p = TRUE), c(-Inf, 0)),
           all(is.na(f$cdf(c(NA, 0), rbind(mu[1, ], c(0, NA, 0))))),
           is.nan(suppressWarnings(f$qf(-.1, mu[1, , drop = FALSE]))),
           inherits(try(bgevlss(pa = .2, pb = .2), silent = TRUE), "try-error"),
@@ -26,11 +26,11 @@ lp <- c(-1e-14, -.01, -20, -40, -200, -800, -1200)
 mu_tail <- cbind(0, 1e-50, rep(.15, length(lp)))
 x <- f$qf(lp, mu_tail, log.p = TRUE, lower.tail = FALSE)
 stopifnot(all(is.finite(x)))
-near(f$cdf(x, mu_tail, logp = TRUE, lower.tail = FALSE), lp)
+near(f$cdf(x, mu_tail, log_p = TRUE, lower.tail = FALSE), lp)
 near(f$cdf(f$qf(-1200, mu[1, , drop = FALSE], log.p = TRUE),
-           mu[1, , drop = FALSE], logp = TRUE), -1200)
+           mu[1, , drop = FALSE], log_p = TRUE), -1200)
 stopifnot(is.finite(f$cdf(1e308, matrix(c(0, 1e-50, .15), 1),
-                          logp = TRUE, lower.tail = FALSE)))
+                          log_p = TRUE, lower.tail = FALSE)))
 
 # Reference agreement at default and custom probabilities, including points
 # in both tails and the blend. evgam is optional outside these tests.
