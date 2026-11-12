@@ -33,7 +33,7 @@
 #'
 #'   The family supplies `rd(mu, wt = NULL, scale = NULL)`,
 #'   `qf(p, mu, wt = NULL, scale = NULL)` and
-#'   `cdf(q, mu, wt = NULL, scale = NULL, logp = FALSE)`.
+#'   `cdf(q, mu, wt = NULL, scale = NULL, log_p = FALSE)`.
 #'   Supply `mu` as a numeric three-column matrix of natural parameters.
 #'   `p` and `q` can be scalars or have one value per row. Simulation returns
 #'   one draw per row. The compatibility arguments `wt` and `scale` do not
@@ -242,7 +242,7 @@ egpdlss <- function(link = list("log", "logshift", "log")) {
   a
 }
 
-.egpd_cdf <- function(q, mu, wt = NULL, scale = NULL, logp = FALSE, lower.tail = TRUE) {
+.egpd_cdf <- function(q, mu, wt = NULL, scale = NULL, log_p = FALSE, lower.tail = TRUE) {
   a <- .egpd_args(q, mu)
   if (any(a$bad)) warning("NaNs produced by invalid egpdlss parameters")
   q <- a$x
@@ -259,7 +259,7 @@ egpdlss <- function(link = list("log", "logshift", "log")) {
   log_neg_lp[inside] <- log(a$kappa[inside]) + ifelse(h > 37, -h, log(-lp))
   lp <- if (lower.tail) -exp(log_neg_lp) else .egpd_log_survival(log_neg_lp)
   lp[a$bad] <- NaN
-  if (logp) lp else exp(lp)
+  if (log_p) lp else exp(lp)
 }
 
 # If log(F) = -exp(z), return log(1 - F), including very small survival.

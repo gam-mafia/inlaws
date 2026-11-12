@@ -65,7 +65,7 @@
 #'
 #'   Use the three-column response-scale parameter matrix `mu` with
 #'   `rd(mu, wt = 1, scale = 1)`,
-#'   `cdf(q, mu, wt = 1, scale = 1, logp = FALSE, lower.tail = TRUE)` and
+#'   `cdf(q, mu, wt = 1, scale = 1, log_p = FALSE, lower.tail = TRUE)` and
 #'   `qf(p, mu, wt = 1, scale = 1, lower.tail = TRUE, log.p = FALSE)`.
 #'   Supply a scalar or one value per row for `q` or `p`. Missing inputs
 #'   propagate. These callbacks ignore weights and external scale and accept
@@ -118,8 +118,8 @@ bgevlss <- function(pa = 0.05, pb = 0.20, alpha = 0.5, beta = 0.5) {
   log_link <- stats::make.link("log")
   log_link$linkinv <- log_link$mu.eta <- exp
 
-  cdf <- function(q, mu, wt = 1, scale = 1, logp = FALSE, lower.tail = TRUE)
-    .bgev_probability(q, mu, spec, lower.tail = lower.tail, log.p = logp)
+  cdf <- function(q, mu, wt = 1, scale = 1, log_p = FALSE, lower.tail = TRUE)
+    .bgev_probability(q, mu, spec, lower.tail = lower.tail, log.p = log_p)
   qf <- function(p, mu, wt = 1, scale = 1, lower.tail = TRUE, log.p = FALSE)
     .bgev_probability(p, mu, spec, quantile = TRUE, lower.tail = lower.tail, log.p = log.p)
   rd <- function(mu, wt = 1, scale = 1) qf(stats::runif(NROW(mu)), mu)
@@ -171,7 +171,7 @@ bgevlss <- function(pa = 0.05, pb = 0.20, alpha = 0.5, beta = 0.5) {
       out$variance_available <- all(is.finite(out$variance))
       out$moment_reason <- "Blended GEV means require shape < 1 and variances require shape < 0.5."
       out$cdf <- function(q, log_p = FALSE, lower_tail = TRUE)
-        cdf(q, mu, wt, scale, logp = log_p, lower.tail = lower_tail)
+        cdf(q, mu, wt, scale, log_p = log_p, lower.tail = lower_tail)
       out$qf <- function(p, log_p = FALSE, lower_tail = TRUE)
         qf(p, mu, wt, scale, log.p = log_p, lower.tail = lower_tail)
       out$rd <- function() rd(mu, wt, scale)

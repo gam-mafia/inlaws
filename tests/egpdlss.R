@@ -31,7 +31,7 @@ for (p in c(0, 1e-12, .01, .4, .95, 1 - 1e-12, 1)) {
   q <- f$qf(p, mu)
   near(q, g$qf(p, mu[, 1:2]))
   near(f$cdf(q, mu), g$cdf(q, mu[, 1:2]))
-  near(f$cdf(q, mu, logp = TRUE), g$cdf(q, mu[, 1:2], logp = TRUE))
+  near(f$cdf(q, mu, log_p = TRUE), g$cdf(q, mu[, 1:2], logp = TRUE))
 }
 y <- f$qf(.7, mu)
 wt <- c(0, 1, 2, 1, .3, 3)
@@ -110,16 +110,16 @@ set.seed(144); near(f$rd(mu, wt = 2, scale = 3), f$qf(u, mu))
 # Large kappa preserves a representable log upper tail after the GPD
 # survival underflows. Tiny lower quantiles retain the scale factor.
 m <- cbind(1, 0, 1e300)
-near(f$cdf(1000, m, logp = TRUE, lower.tail = FALSE), log(1e300) - 1000)
+near(f$cdf(1000, m, log_p = TRUE, lower.tail = FALSE), log(1e300) - 1000)
 near(f$qf(log(1e300) - 1000, m, log.p = TRUE, lower.tail = FALSE), 1000)
 m <- cbind(1e100, 0, 1)
 near(log(f$qf(-900, m, log.p = TRUE)), log(1e100) - 900)
-near(f$cdf(f$qf(-900, m, log.p = TRUE), m, logp = TRUE), -900)
+near(f$cdf(f$qf(-900, m, log.p = TRUE), m, log_p = TRUE), -900)
 m <- cbind(1, 0, .1)
-near(f$cdf(1e-300, m, logp = TRUE), .1 * log(1e-300))
+near(f$cdf(1e-300, m, log_p = TRUE), .1 * log(1e-300))
 m <- cbind(2, -.4, 2)
 x <- 5 - 1e-7
-near(f$cdf(x, m, logp = TRUE, lower.tail = FALSE), log(2) + 2.5 * log((5 - x)/5))
+near(f$cdf(x, m, log_p = TRUE, lower.tail = FALSE), log(2) + 2.5 * log((5 - x)/5))
 stopifnot(f$cdf(5, m) == 1, f$cdf(5 + 1e-7, m, lower.tail = FALSE) == 0)
 et <- matrix(c(log(2), log(.1), log(2)), nrow = 1)
 stopifnot(is.finite(f$ll(x, NULL, NULL, 1, f, eta = et)$l),

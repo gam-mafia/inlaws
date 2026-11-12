@@ -44,7 +44,7 @@ See the family compatibility vignette for details.
 
 The family supplies \code{rd(mu, wt = NULL, scale = NULL)},
 \code{qf(p, mu, wt = NULL, scale = NULL)} and
-\code{cdf(q, mu, wt = NULL, scale = NULL, logp = FALSE)}.
+\code{cdf(q, mu, wt = NULL, scale = NULL, log_p = FALSE)}.
 Supply \code{mu} as a numeric three-column matrix of natural parameters.
 \code{p} and \code{q} can be scalars or have one value per row. Simulation returns
 one draw per row. The compatibility arguments \code{wt} and \code{scale} do not
