@@ -30,7 +30,8 @@ method. Identity and square-root mean links require positive predictors.
 
 REML fitting supports outer Newton, outer BFGS, and extended Fellner--Schall
 (\code{optimizer = "efs"}), using analytic derivatives through fourth order.
-NCV, \code{bam()}, and \code{gamm()} are not supported. Observations must be
+NCV and QNCV are also supported in \code{gam()}. Use \code{gam()} for both predictors.
+Observations must be
 nonnegative integer counts, with finite nonnegative prior weights.
 An all-zero response among positive-weight observations is not identifiable
 and is rejected. Size can tend to infinity for Poisson or underdispersed

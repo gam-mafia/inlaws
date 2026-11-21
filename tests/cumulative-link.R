@@ -1,4 +1,4 @@
-library(inlaws)
+library("inlaws")
 near <- function(x, y, tol = 1e-6) {
   stopifnot(isTRUE(all.equal(as.numeric(x), as.numeric(y), tolerance = tol)))
 }
@@ -108,7 +108,6 @@ for (link in links) {
   for (engine in c("gam", "bam")) {
     methods <- if (engine == "gam") c("REML", "ML", "NCV") else c("REML", "ML", "fREML", "NCV")
     for (method in methods) {
-      if (engine == "bam" && method == "NCV" && packageVersion("mgcv") < "1.9.4") next
       args <- list(formula = y ~ s(x, k = 6, bs = "cr"), data = d,
                    family = cumulative_link(R = 4, link = link), method = method)
       if (engine == "bam") args$discrete <- method %in% c("fREML", "NCV")
@@ -117,6 +116,10 @@ for (link in links) {
       stopifnot(all(is.finite(pr$fit)), all(pr$fit >= 0), all(is.finite(pr$se.fit)),
                 all(pr$se.fit >= 0), identical(g$method, method))
       near(rowSums(pr$fit), rep(1, 12), 1e-12)
+      one <- predict(g, newdata = d[1, ], type = "response", se.fit = TRUE)
+      stopifnot(identical(dim(one$fit), c(1L, 4L)), identical(dim(one$se.fit), c(1L, 4L)))
+      near(one$fit, pr$fit[1, ])
+      near(one$se.fit, pr$se.fit[1, ])
       cp <- g$family$cdf(2, predict(g, newdata = d[1:12, ], type = "link"))
       near(cp, rowSums(pr$fit[, 1:2]))
     }
@@ -137,6 +140,29 @@ mu <- fitted(g)
 stopifnot(length(g$family$rd(mu)) == n)
 near(g$family$qf(.5, mu), g$family$qf(.5, predict(g, d, type = "link")))
 stopifnot(length(g$family$rd(predict(g, d[1:7, ], type = "link"))) == 7L)
+
+# Reusing a constructor or a previously fitted family preserves each fit's
+# thresholds and distribution callbacks, including through bam's final AIC.
+for (route in c("gam", "bam", "discrete")) {
+  template <- cumulative_link(R = 4, link = "probit")
+  initial <- template$getTheta()
+  fit <- function(data, family) {
+    if (route == "gam") gam(y ~ s(x, k = 6), data = data, family = family, method = "REML")
+    else bam(y ~ s(x, k = 6), data = data, family = family, method = "fREML",
+             discrete = route == "discrete", scale = 1)
+  }
+  first <- fit(d, template)
+  old <- first$family$getTheta()
+  old_cdf <- first$family$cdf(2, 0)
+  altered <- transform(d, y = replace(y, y == 2 & x > 0, 3L))
+  second <- fit(altered, first$family)
+  stopifnot(max(abs(second$family$getTheta() - old)) > 1e-2)
+  near(template$getTheta(), initial)
+  near(first$family$getTheta(), old)
+  near(first$family$cdf(2, 0), old_cdf)
+  near(as.numeric(logLik(second)), -sum(second$family$dev.resids(
+    second$y, fitted(second), second$prior.weights)) / 2)
+}
 
 # Binary outcome uses the fixed first threshold and still needs higher derivatives.
 d$binary <- as.integer(d$y > 2)+1L
@@ -162,6 +188,9 @@ near(start_family$preinitialize(d$y, start_family)$Theta, log(c(.4,2)))
 stopifnot(start_family$n.theta == 2L)
 error(gam(y~x,data=transform(d,y=y+.1),family=cumulative_link(R=4)))
 error(gam(y~x,data=transform(d,y=ordered(y)),family=cumulative_link(R=4)))
+bad_scale <- tryCatch(gam(y ~ s(x, k = 6), data = d, family = cumulative_link(R = 4),
+                          method = "REML", scale = 2), error = identity)
+stopifnot(inherits(bad_scale, "error"), grepl("likelihood scale is fixed", conditionMessage(bad_scale)))
 
 # Extreme-value tails: exact endpoint derivatives avoid catastrophic cancellation.
 for (link in c("cloglog", "loglog")) {
@@ -175,6 +204,12 @@ for (link in c("cloglog", "loglog")) {
     sign <- if(link == "cloglog") (-1)^k else 1
     near(a[[name]]/(2*exp(z)),sign,1e-12)
   }
+  # The opposite end category is nearly certain at these locations. Its
+  # vanishing density must not be multiplied by an overflowing polynomial.
+  y <- if (link == "cloglog") 1L else 4L
+  m <- if (link == "cloglog") -400 else 400
+  a <- unlist(f$Dd(y, m, c(0, 0), 1, 2))
+  near(a, rep(0, length(a)), 1e-12)
 }
 # Non-default leave-neighbourhood-out structures and one free threshold.
 set.seed(70)
@@ -183,7 +218,6 @@ d3$y <- as.integer(cut(sin(5*d3$x)+rnorm(240),c(-Inf,-1,1,Inf)))
 groups <- split(seq_len(nrow(d3)), rep(seq_len(80),each=3))
 nei <- list(a=unlist(groups,use.names=FALSE),ma=seq(3,240,3),d=seq_len(240),md=seq(3,240,3))
 for(engine in c("gam","bam")) {
-  if(engine == "bam" && packageVersion("mgcv") < "1.9.4") next
   args <- list(formula=y~s(x,k=6),data=d3,family=cumulative_link(R=3,link="probit"),method="NCV",nei=nei)
   if(engine == "bam") args$discrete <- TRUE
   g3 <- do.call(get(engine),args)
@@ -198,3 +232,4 @@ pr <- predict(f,type="response",se.fit=TRUE)
 lp <- predict(f,se.fit=TRUE)
 a <- f$family$getTheta(TRUE)
 near(pr$se.fit[,1],dnorm(a[1]-lp$fit)*lp$se.fit)
+near(f$family$cdf(2, 0, logp = TRUE), f$family$cdf(2, 0, log.p = TRUE))

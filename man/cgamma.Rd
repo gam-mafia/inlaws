@@ -32,6 +32,8 @@ The conditional mean is \code{mu = exp(eta)} and variance is \code{theta * mu^2}
 The gamma shape is \code{1 / theta} and scale is \code{mu * theta}. Dispersion is
 estimated as a family parameter on the log scale. The additional mgcv scale
 parameter is fixed at one; \code{family$getTheta(TRUE)} returns dispersion.
+When dispersion is very small and censoring bounds are close to the mean,
+incomplete-gamma derivative calculations may fail to converge.
 
 An ordinary vector response specifies exact observations. For censoring use
 a two-column matrix, following \link[mgcv:cnorm]{mgcv::cnorm}: equal entries denote an exact
@@ -42,6 +44,10 @@ be zero. Censoring is assumed non-informative conditional on the covariates.
 
 Prior weights multiply log-likelihood contributions (replication weights);
 they do not change individual gamma dispersions. Zero weights are allowed.
+Deviance residuals have negative signs for left censoring and positive signs
+for right censoring. Finite intervals are signed relative to the mean that
+maximizes their probability. Response and Pearson residuals are missing for
+censored rows because their exact responses are unknown.
 
 Response predictions are ordinary plug-in estimates of the conditional
 arithmetic mean, \code{exp(eta)}, with delta-method standard errors. They do not

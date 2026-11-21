@@ -39,7 +39,11 @@ the distribution's support. Prior weights multiply log likelihoods.
 Fitted values and \code{predict(..., type = "response")} are matrices with
 columns for scale and shape (in that order), both on their natural scales. They are not
 conditional means. Link predictions are log scale and linked shape.
-Only \code{gam()} with ordinary model matrices is supported, not \code{bam()}.
+Fit with \code{gam()} and ordinary model matrices using REML, NCV or QNCV.
+Exact NCV requires the held-out excesses to lie in the support implied by
+their neighbourhood-deletion predictors. A trial fit outside that
+support has an infinite NCV score. QNCV uses a local quadratic
+approximation around the full-data predictors.
 
 The family includes \code{rd(mu, wt = NULL, scale = NULL)},
 \code{qf(p, mu, wt = NULL, scale = NULL)} and

@@ -3,8 +3,8 @@
 #' @description
 #' `r lifecycle::badge("experimental")`
 #'
-#' An extended family for [mgcv::gam()] with a log link for the exact mean
-#' and a fixed or estimated global dispersion parameter.
+#' An extended family for [mgcv::gam()] and [mgcv::bam()] with a log link for
+#' the exact mean and a fixed or estimated global dispersion parameter.
 #'
 #' @param theta Dispersion nu: `NULL` or zero estimates nu starting at one;
 #'   a positive value fixes nu; a negative value estimates nu starting at
@@ -23,11 +23,18 @@
 #'   among observations with positive weights has no finite log-mean fit
 #'   and is rejected.
 #'
-#'   Use `method = "REML"`. This pure-R reference implementation uses adaptive
-#'   summation and analytic Taylor arithmetic for derivatives. Extreme means
-#'   or dispersion can exhaust numerical limits, which produces an error.
-#'   Large-data performance, `bam()`, and other smoothing-selection methods
-#'   have not been validated. Near-deterministic data may not have a finite
+#'   `gam()` supports `method = "REML"`, `"ML"`, `"NCV"` and `"QNCV"`.
+#'   `bam()` supports its extended-family selectors, including `"fREML"` and,
+#'   with `discrete = TRUE`, `"fREML"` and `"NCV"`. Supply `scale = 1` to
+#'   `bam()` so that `logLik()` treats the likelihood scale as fixed.
+#'   Entirely unpenalized ML fits can encounter an upstream LAPACK error when
+#'   individual observations have negative log-link curvature. Use REML in
+#'   this case.
+#'
+#'   This pure-R reference implementation uses adaptive summation and analytic
+#'   Taylor arithmetic for derivatives. Large-data performance has not been
+#'   validated. Extreme means or dispersion can exhaust numerical limits,
+#'   which produces an error. Near-deterministic data may not have a finite
 #'   dispersion estimate.
 #'
 #'   Prior weights multiply log likelihood contributions; they do not change
@@ -199,24 +206,30 @@ cmp <- function(theta = NULL, link = "log", control = list()) {
       stop("CMP needs a positive count with positive weight for a finite log-mean fit")
     mustart <- y + (y == 0) / 6
   })
-  # gam() mutates family parameter environments. Clone before each fit so
-  # reusing a constructor object cannot change a previously fitted model.
   preinitialize <- function(y, family) {
-    list(family = unserialize(serialize(family, NULL)))
+    # Clone before gam can populate the family caches. The bam setup has
+    # already cloned the family shared by its fitter and AIC calculation.
+    if (!isTRUE(family$.cmp_isolated))
+      family <- unserialize(serialize(family, NULL))
+    list(family = family)
   }
   postproc <- function(family, y, prior.weights, fitted, linear.predictors, offset, intercept) {
     # Convex in the intercept's log-lambda only for a constant mean. Use a
     # scalar mean-link optimisation to accommodate exposure offsets as well.
     obj <- function(b) sum(family$dev.resids(y, exp(b + offset), prior.weights))
-    centre <- sum((linear.predictors - offset) * prior.weights) / sum(prior.weights)
-    width <- 1
-    repeat {
-      opt <- stats::optimize(obj, c(centre - width, centre + width))
-      if (abs(opt$minimum - centre) < 0.95 * width) break
-      width <- width * 2
-      if (width > 128) stop("CMP null deviance optimisation failed", call. = FALSE)
+    null <- if (!intercept) obj(0) else {
+      centre <- stats::weighted.mean(linear.predictors - offset, prior.weights)
+      width <- 1
+      repeat {
+        opt <- stats::optimize(obj, centre + c(-width, width), tol = 1e-9)
+        if (abs(opt$minimum - centre) < 0.95 * width) break
+        width <- width * 2
+        if (width > 128) stop("CMP null deviance optimisation failed", call. = FALSE)
+      }
+      opt$objective
     }
-    list(null.deviance = opt$objective)
+    list(null.deviance = null,
+         deviance = sum(family$dev.resids(y, fitted, prior.weights)))
   }
   lk <- stats::make.link("log")
   family <- structure(list(family = "Conway-Maxwell-Poisson", link = "log",
@@ -227,6 +240,14 @@ cmp <- function(theta = NULL, link = "log", control = list()) {
     postproc = postproc, variance = variance,
     n.theta = as.integer(!fixed), ini.theta = .Theta, getTheta = getTheta,
     putTheta = putTheta, scale = 1, rd = rd, qf = qf, cdf = cdf),
-    class = c("extended.family", "family"))
+    class = c("cmp.family", "extended.family", "family"))
   .inlaws_diagnostic_family(family, "cmp")
+}
+
+#' @export
+#' @importFrom mgcv fix.family.link
+fix.family.link.cmp.family <- function(fam) {
+  fam <- unserialize(serialize(fam, NULL))
+  fam$.cmp_isolated <- TRUE
+  NextMethod()
 }

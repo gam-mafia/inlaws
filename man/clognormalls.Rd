@@ -42,8 +42,8 @@ can be mixed. Case weights multiply log-likelihood contributions and do
 not change the conditional distribution. Missing rows are handled by
 \code{gam()}'s \code{na.action}.
 
-Smoothing parameter selection supports \code{method = "REML"} and
-\code{method = "NCV"}, including neighbourhoods supplied through \code{nei}.
+Smoothing parameter selection supports REML, NCV, and QNCV,
+including neighbourhoods supplied through \code{nei}.
 \code{bam()}, \code{gamm()}, and ML smoothing selection are not supported. Separate
 coefficients are required for the two predictors; shared coefficients
 specified with an additional numeric-left-hand-side formula are not

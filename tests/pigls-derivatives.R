@@ -1,4 +1,4 @@
-library(inlaws)
+library("inlaws")
 near <- function(x,y,tol=2e-5) stopifnot(length(x)==length(y),all(is.finite(x)),all(is.finite(y)),
   max(abs(x-y)/pmax(1,abs(x),abs(y))) < tol)
 differentiate <- function(f,x,j,h=1e-4) {

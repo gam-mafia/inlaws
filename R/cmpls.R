@@ -18,9 +18,9 @@
 #'   free distribution parameters are modelled. nu = 1 is Poisson, nu > 1
 #'   is underdispersed, and 0 < nu < 1 is overdispersed.
 #'
-#'   REML supports outer Newton and BFGS optimization. NCV uses BFGS, with
+#'   REML supports outer Newton and BFGS optimization. NCV and QNCV use BFGS, with
 #'   default leave-one-out or neighbourhoods supplied through `nei`.
-#'   This family is intended for `gam()` only. ML, QNCV, EFS, `bam()` and
+#'   This family is intended for `gam()` only. ML, EFS, `bam()` and
 #'   `gamm()` are outside the supported scope. Separate coefficients are
 #'   required for the predictors; covariates can appear in both formulae.
 #'
@@ -81,7 +81,7 @@ cmpls <- function(link = list("log", "log"), control = list()) {
   })
   family <- structure(list(family = "cmpls", link = unlist(link), nlp = 2L,
     linfo = linfo, tri = mgcv::trind.generator(2), ll = .cmpls_ll, control = control,
-    ncv = .cmpls_ncv, initialize = initialize, init = .cmpls_init,
+    ncv = .inlaws_gamlss_ncv, initialize = initialize, init = .cmpls_init,
     postproc = postproc, residuals = .cmpls_residuals, predict = .cmpls_predict,
     dev.resids = function(y, mu, wt) .cmpls_deviance(y, mu, wt, control),
     null.deviance = .cmpls_null_deviance,
@@ -142,7 +142,7 @@ cmpls <- function(link = list("log", "log"), control = list()) {
   l3 <- if (order >= 3) packed[[3]] else 0
   l4 <- if (order >= 4) packed[[4]] else 0
   ret <- list()
-  if (!supplied && !is.null(jj)) ret <- mgcv::gamlss.gH(
+  if (!supplied && !is.null(jj)) ret <- .inlaws_gamlss_gh(
     X, jj, packed[[1]], packed[[2]], family$tri$i2,
     l3 = l3, i3 = family$tri$i3, l4 = l4, i4 = family$tri$i4,
     d1b = d1b, d2b = d2b, deriv = deriv - 1L, fh = fh, D = D, sandwich = sandwich)
@@ -152,41 +152,6 @@ cmpls <- function(link = list("log", "log"), control = list()) {
   }
   ret$l0 <- ell[, 1]; ret$l <- sum(ret$l0)
   ret
-}
-
-.cmpls_ncv <- function(X, y, wt, nei, beta, family, llf, H = NULL,
-                       Hi = NULL, R = NULL, offset = NULL, dH = NULL,
-                       db = NULL, deriv = FALSE, nt = 1) {
-  if (isTRUE(family$qapprox)) stop("cmpls does not support QNCV")
-  if (is.null(wt)) wt <- rep(1, length(y))
-  # Obtain the neighbourhood updates with gamma=1, then reconstruct the
-  # gamma adjustment using the actual prediction rows and both offsets.
-  # This also handles reordered/repeated nei$d and prediction subsets.
-  lf <- llf; lf$gamma <- 1
-  native <- utils::getFromNamespace("gamlss.ncv", "mgcv")
-  ret <- native(X, y, wt, nei, beta, family, lf, H = H, Hi = Hi,
-                R = R, offset = offset, dH = dH, db = db, deriv = deriv, nt = nt)
-  ecv <- attr(ret$NCV, "eta.cv"); dcv <- attr(ret$NCV, "deta.cv")
-  eta <- .cmpls_eta(X, beta, offset)
-  base <- family$ll(y, X, beta, wt, family, eta = eta, deriv = 1, ncv = TRUE)
-  ix <- nei$d; gamma <- if (is.null(llf$gamma)) 1 else llf$gamma
-  cv <- family$ll(y[ix], X[ix, , drop = FALSE], beta, wt[ix], family,
-                  eta = ecv, deriv = 1, ncv = TRUE)
-  score <- -gamma * cv$l - (1 - gamma) * sum(base$l0[ix])
-  grad <- Vg <- NULL
-  if (deriv > 0) {
-    jj <- attr(X, "lpi"); m <- length(ix)
-    g <- matrix(0, m, ncol(db))
-    for (j in 1:2) {
-      d0 <- X[ix, jj[[j]], drop = FALSE] %*% db[jj[[j]], , drop = FALSE]
-      dc <- dcv[seq_len(m) + (j - 1L) * m, , drop = FALSE]
-      g <- g - gamma * cv$l1[, j] * dc - (1 - gamma) * base$l1[ix, j] * d0
-    }
-    grad <- colSums(g); Vg <- crossprod(g)
-  }
-  attr(score, "eta.cv") <- ecv
-  if (deriv != 0) attr(score, "deta.cv") <- dcv
-  list(NCV = score, NCV1 = grad, error = ret$error, Vg = Vg)
 }
 
 .cmpls_init <- function(y, x, E, wt, offset, start) {

@@ -16,7 +16,9 @@
 #'   dispersion formula second. Both support offsets. The model has mean
 #'   `mu = exp(eta1)`, dispersion `phi = exp(eta2)`, shape `1/phi`, scale
 #'   `mu*phi`, and variance `phi*mu^2`. There is no artificial dispersion bound;
-#'   very small dispersion can produce singular fits.
+#'   very small dispersion can produce singular fits. When censoring bounds
+#'   are close to the mean, incomplete-gamma derivatives may fail to converge
+#'   at very small dispersion.
 #'
 #'   Use a positive vector for exact responses or the two-column censoring
 #'   matrix described in [cgamma()]. All censoring types may be mixed; zero
@@ -24,10 +26,10 @@
 #'   `na.action`. Finite nonnegative case weights multiply likelihood terms,
 #'   including zero weights, and do not change the response distribution.
 #'
-#'   REML and NCV smoothing selection are supported, including neighbourhoods
-#'   supplied through `nei`. `bam()`, `gamm()`, ML smoothing selection, QNCV,
-#'   and shared coefficients between predictors are outside the supported
-#'   scope. The same covariates and smooths may appear in both formulae.
+#'   REML, NCV, and QNCV smoothing selection are supported, including
+#'   neighbourhoods supplied through `nei`. Use `gam()` with separate
+#'   coefficient blocks. The same covariates and smooths may appear in both
+#'   formulae.
 #'
 #'   Fitted values and response predictions have columns `mu`, `phi`; link
 #'   predictions are their natural logarithms. Response standard errors use
@@ -81,7 +83,7 @@ cgammals <- function(link = list("log", "log"), observe = NULL) {
   })
   family <- structure(list(family = "cgammals", link = unlist(link), nlp = 2L,
     linfo = linfo, tri = mgcv::trind.generator(2), ll = .cgammals_ll,
-    ncv = .cgammals_ncv, initialize = initialize, init = .cgammals_init,
+    ncv = .inlaws_gamlss_ncv, initialize = initialize, init = .cgammals_init,
     prepare.response = .cgammals_response,
     # General-family fitters count length(y) before initialize is evaluated.
     preinitialize = function(G) list(y = .cgammals_response(G$y), offxset = G$offset),
@@ -116,7 +118,7 @@ cgammals <- function(link = list("log", "log"), observe = NULL) {
         eta[, k] <- eta[, k] + offset[[k]]
     }
   }
-  # Direct eta already includes offsets in gamlss.ncv; do not add them twice.
+  # Held-out predictors already include offsets.
   wt <- rep_len(if (is.null(wt)) 1 else wt, nrow(eta))
   eta[wt == 0, ] <- 0
   valid <- is.finite(eta[, 1]) & is.finite(eta[, 2]) &
@@ -148,7 +150,7 @@ cgammals <- function(link = list("log", "log"), observe = NULL) {
     l4 <- if (order >= 4) packed[[4]] else 0
     # NCV supplies eta for row subsets whose X may lack lpi. It only needs
     # observation derivatives, not coefficient-space contractions there.
-    if (!is.null(jj)) ret <- mgcv::gamlss.gH(X, jj, packed[[1]], packed[[2]], family$tri$i2,
+    if (!is.null(jj)) ret <- .inlaws_gamlss_gh(X, jj, packed[[1]], packed[[2]], family$tri$i2,
       l3 = l3, i3 = family$tri$i3, l4 = l4, i4 = family$tri$i4,
       d1b = d1b, d2b = d2b, deriv = deriv - 1L, fh = fh, D = D,
       sandwich = sandwich)
@@ -158,41 +160,6 @@ cgammals <- function(link = list("log", "log"), observe = NULL) {
     }
   }
   ret$l0 <- ell[, 1]; ret$l <- sum(ret$l0)
-  ret
-}
-
-.cgammals_ncv <- function(X, y, wt, nei, beta, family, llf, H = NULL,
-                            Hi = NULL, R = NULL, offset = NULL, dH = NULL,
-                            db = NULL, deriv = FALSE, nt = 1) {
-  # gamlss.ncv subsets y with y[nei$d], dropping attributes (or flattening
-  # matrices). Pass row indices and decode inside its likelihood callback.
-  response <- .cgammals_response(y)
-  bounds <- attr(response, "censor")
-  likelihood <- family$ll
-  fit_offset <- lapply(1:2, function(k) {
-    if (length(offset) >= k && !is.null(offset[[k]])) rep_len(offset[[k]], length(response)) else
-      numeric(length(response))
-  })
-  family$ll <- function(y, X, coef, wt, family, offset = NULL, deriv = 0,
-                        d1b = 0, ..., eta = NULL) {
-    yy <- response[y]
-    attr(yy, "censor") <- bounds[y]
-    off <- lapply(fit_offset, function(x) x[y])
-    if (!is.null(eta)) for (k in 1:2) eta[, k] <- eta[, k] + off[[k]]
-    likelihood(yy, X, coef, wt, family, offset = off, deriv = deriv,
-               d1b = d1b, ..., eta = eta)
-  }
-  # Keep the helper's predictors offset-free and add offsets only in the
-  # callback. Its gamma adjustment evaluates the full-data eta without
-  # adding offsets, whereas its held-out eta normally includes them.
-  ret <- utils::getFromNamespace("gamlss.ncv", "mgcv")(
-    X, seq_along(response), wt, nei, beta, family, llf, H = H, Hi = Hi,
-    R = R, offset = NULL, dH = dH, db = db, deriv = deriv, nt = nt)
-  eta <- attr(ret$NCV, "eta.cv")
-  if (!is.null(eta)) {
-    for (k in 1:2) eta[, k] <- eta[, k] + fit_offset[[k]][nei$d]
-    attr(ret$NCV, "eta.cv") <- eta
-  }
   ret
 }
 
@@ -250,7 +217,7 @@ cgammals <- function(link = list("log", "log"), observe = NULL) {
   sat <- numeric(nrow(yy))
   ii <- rr$exact | (rr$lo > 0 & is.finite(rr$hi))
   if (any(ii)) {
-    target <- .cgammals_saturated_mean(rr)
+    target <- .cg_saturated_mean(rr)
     sat[ii] <- .cgammals_eval(yy[ii, , drop = FALSE], log(target[ii]),
                               log(mu[keep, 2][ii]))$ell[, 1]
   }
@@ -258,24 +225,12 @@ cgammals <- function(link = list("log", "log"), observe = NULL) {
   d
 }
 
-.cgammals_saturated_mean <- function(r) {
-  target <- r$y
-  ii <- !r$exact & r$lo > 0 & is.finite(r$hi)
-  width <- r$hi[ii] - r$lo[ii]
-  target[ii] <- width/log1p(width/r$lo[ii])
-  target[!r$exact & r$lo == 0] <- 0
-  target[is.infinite(r$hi)] <- Inf
-  target
-}
-
 .cgammals_residuals <- function(object, type = c("deviance", "pearson", "response", "scaled.pearson"), ...) {
   type <- match.arg(type)
   r <- .cg_response(object$y)
   mu <- object$fitted.values[, 1]; phi <- object$fitted.values[, 2]
   if (type == "deviance") {
-    sgn <- sign(.cgammals_saturated_mean(r) - mu)
-    sgn[r$censor == -Inf] <- -1
-    sgn[r$censor == Inf] <- 1
+    sgn <- sign(.cg_saturated_mean(r) - mu)
     return(sgn * sqrt(.cgammals_deviance(object$y, object$fitted.values, object$prior.weights)))
   }
   ans <- r$y - mu

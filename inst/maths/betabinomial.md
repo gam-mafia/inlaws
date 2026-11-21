@@ -112,24 +112,15 @@ this family's interface.
 
 ## NCV
 
-The family supplies observation-level predictor derivatives through order
-three, direct `eta` evaluation, and a wrapper around mgcv's internal
-`gamlss.ncv` helper. The wrapper passes scalar row identifiers as the helper's
-response. A local likelihood callback maps those identifiers back to counts
-and totals, restores predictor indices on subset model matrices, and evaluates
-the original likelihood with the supplied `eta`. This preserves repeated or
-reordered prediction indices and varying trial totals. Supplied `eta` already
-includes offsets, so the callback must not add offsets a second time. For
-the full-data score used with `gamma != 1`, the helper instead supplies
-`X beta` without offsets; reconstruct this predictor through the ordinary
-likelihood path so that the score and its derivative agree.
+The family supplies observation-level predictor derivatives through order three
+and direct evaluation at held-out predictors. NCV and QNCV use mgcv's compiled
+deletion updates. The shared score calculation uses the offsets, successes, and
+trial totals for the specified prediction rows, including repeated or reordered
+indices. See the [NCV derivative formulas](zinb-zanb.md#ncv).
 
-The family supports NCV only. QNCV is rejected: the current mgcv helper's
-QNCV derivative path does not correctly align general prediction indices
-with full-data predictor derivatives. NCV's one-step deletion approximation
-is not an exact refit. Leave out entire rows
-(groups), or neighbourhoods of rows to address between-group dependence.
-Weak precision information can make deletion approximations unreliable.
+Each deletion leaves out a whole row (a group of trials). Use neighbourhoods
+of rows to account for between-group dependence. Weak precision information can
+make the one-step deletion approximation unreliable.
 
 ## Diagnostics
 

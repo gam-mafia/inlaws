@@ -1,4 +1,4 @@
-library(inlaws)
+library("inlaws")
 near<-function(x,y,tol=1e-5) stopifnot(length(x)==length(y),all(is.finite(x)),all(is.finite(y)),
   max(abs(x-y)/pmax(1,abs(x),abs(y))) < tol)
 error<-function(expr,pattern) {
@@ -81,4 +81,5 @@ for(w in list(c(-1,1),c(Inf,1),c(0,0)))
 error(gam(y~z,data=d,family=pigls()),"two formulae")
 error(gam(list(y~1,~1,1+2~z-1),data=d,family=pigls()),"shared")
 error(bam(form,data=d,family=pigls()),"general families|requires gam")
-error(gam(form,data=d,family=pigls(),method="QNCV"),"QNCV")
+qcv <- gam(form, data = d, family = pigls(), method = "QNCV")
+stopifnot(qcv$method == "QNCV", is.finite(qcv$gcv.ubre))

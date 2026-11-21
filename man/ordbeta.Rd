@@ -15,13 +15,13 @@ and/or \code{cutpoints} (two ordered numeric cutpoints). These initialize
 estimation; they do not fix parameters. Active cutpoints must be finite.}
 }
 \value{
-An \code{extended.family} object for \code{gam()}.
+An \code{extended.family} object for \code{gam()} and \code{bam()}.
 }
 \description{
 \ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#experimental}{\figure{lifecycle-experimental.svg}{options: alt='[Experimental]'}}}{\strong{[Experimental]}}
 
-An extended family for \code{\link[mgcv:gam]{mgcv::gam()}} with exact masses at zero and one,
-and a beta density in the interior. Use \code{method = "REML"} or \code{"ML"}.
+An extended family for \code{\link[mgcv:gam]{mgcv::gam()}} and \code{\link[mgcv:bam]{mgcv::bam()}} with exact masses
+at zero and one and a beta density in the interior.
 }
 \details{
 For predictor \code{eta}, let \code{mu = plogis(eta)}, with precision \code{phi} and
@@ -61,10 +61,13 @@ retaining offsets and fitted nuisance parameters. The \code{rd}, \code{cdf}, and
 conditions on fitted parameters. The CDF is right-continuous; randomized
 quantile residuals require randomization across its jumps at the endpoints.
 
-This implementation targets \code{gam()}; \code{bam()}, NCV, fixed nuisance
-parameters, and predictors for precision or cutpoints are not supported
-interfaces in this release. The implementation uses mgcv's internal
-extended-family preinitialization contract, tested with mgcv >= 1.9-3.
+\code{gam()} supports REML, ML, NCV and QNCV. \code{bam()} supports REML, ML and
+fREML, and discrete fitting supports fREML and NCV. Ordinary \code{bam()}
+stabilizes fitting steps using positive working curvature equal to the larger
+of the expected and observed information on the predictor scale. Discrete
+NCV uses the working linear model. Use \code{scale = 1} in \code{bam()} so mgcv records
+the scale as fixed in the fitted model. Fixed nuisance parameters and separate
+predictors for precision or cutpoints are unavailable.
 }
 \examples{
 set.seed(4)

@@ -3,15 +3,15 @@
 #' @description
 #' `r lifecycle::badge("experimental")`
 #'
-#' An extended family for [mgcv::gam()] with exact masses at zero and one,
-#' and a beta density in the interior. Use `method = "REML"` or `"ML"`.
+#' An extended family for [mgcv::gam()] and [mgcv::bam()] with exact masses
+#' at zero and one and a beta density in the interior.
 #'
 #' @param link Only `"logit"` is supported. The link applies to the mean of
 #'   the interior beta component, not to the complete response mean.
 #' @param start Optional named list with `phi` (positive finite precision)
 #'   and/or `cutpoints` (two ordered numeric cutpoints). These initialize
 #'   estimation; they do not fix parameters. Active cutpoints must be finite.
-#' @return An `extended.family` object for `gam()`.
+#' @return An `extended.family` object for `gam()` and `bam()`.
 #' @details
 #' For predictor `eta`, let `mu = plogis(eta)`, with precision `phi` and
 #' ordered cutpoints `c1 < c2`. The endpoint probabilities are
@@ -50,10 +50,13 @@
 #' conditions on fitted parameters. The CDF is right-continuous; randomized
 #' quantile residuals require randomization across its jumps at the endpoints.
 #'
-#' This implementation targets `gam()`; `bam()`, NCV, fixed nuisance
-#' parameters, and predictors for precision or cutpoints are not supported
-#' interfaces in this release. The implementation uses mgcv's internal
-#' extended-family preinitialization contract, tested with mgcv >= 1.9-3.
+#' `gam()` supports REML, ML, NCV and QNCV. `bam()` supports REML, ML and
+#' fREML, and discrete fitting supports fREML and NCV. Ordinary `bam()`
+#' stabilizes fitting steps using positive working curvature equal to the larger
+#' of the expected and observed information on the predictor scale. Discrete
+#' NCV uses the working linear model. Use `scale = 1` in `bam()` so mgcv records
+#' the scale as fixed in the fitted model. Fixed nuisance parameters and separate
+#' predictors for precision or cutpoints are unavailable.
 #' @references
 #' Kubinec, R. (2023). Ordered Beta Regression: A Parsimonious, Well-Fitting
 #' Model for Continuous Data with Lower and Upper Bounds. Political Analysis,
@@ -88,8 +91,11 @@ ordbeta <- function(link = "logit", start = NULL) {
 }
 
 .ordbeta_family <- function(mode, initial, start = NULL) {
-  # A new closure for every fitted model; the user-supplied family is a template.
+  # A configuration belongs to one fitted model. The bam wrapper and fitter
+  # both need to see the same final mode and estimated nuisance parameters.
   theta <- initial
+  needs_setup <- FALSE
+  stabilize_bam <- FALSE
   getTheta <- function(trans = FALSE) {
     if (trans) .ordbeta_natural(theta, mode) else theta
   }
@@ -106,9 +112,19 @@ ordbeta <- function(link = "logit", start = NULL) {
     out
   }
   Dd <- function(y, mu, theta, wt, level = 0) {
-    .ordbeta_Dd(y, mu, theta, wt, level, mode, bases, fbasis)
+    d <- .ordbeta_Dd(y, mu, theta, wt, level, mode, bases, fbasis)
+    if (stabilize_bam && level == 0) {
+      # Ordinary bam takes a weighted least-squares step using EDeta2.
+      # The Fisher denominator can give an oversize step when local observed
+      # curvature is higher. Convert that curvature to mgcv's mu coordinates.
+      observed <- d$Dmu2 + d$Dmu * (1 - 2 * mu) / (mu * (1 - mu))
+      d$EDmu2 <- pmax(d$EDmu2, observed)
+    }
+    d
   }
   ls <- function(y, w, theta, scale) {
+    if (length(scale) != 1L || !is.finite(scale) || scale != 1)
+      stop("ordbeta likelihood scale is fixed at one")
     list(ls = 0, lsth1 = numeric(nt), lsth2 = matrix(0, nt, nt),
          LSTH1 = matrix(0, length(y), nt))
   }
@@ -165,13 +181,16 @@ ordbeta <- function(link = "logit", start = NULL) {
   }
   predict <- function(family, se = FALSE, eta = NULL, y = NULL, X = NULL,
                       beta = NULL, off = NULL, Vb = NULL) {
-    if (is.null(eta)) eta <- drop(X %*% beta) + if (is.null(off)) 0 else off
+    if (is.null(eta) || se) {
+      location <- .inlaws_location_prediction(X, beta, off, if (se) Vb)
+      if (is.null(eta)) eta <- location$eta
+    }
     p <- .ordbeta_components(eta, family$getTheta(TRUE))
     mu <- stats::plogis(eta)
     fit <- p[, 3]+p[, 2]*mu
     if (!se) return(list(fit = fit))
     slope <- .ordbeta_slopes(eta, p)$response
-    list(fit = fit, se.fit = abs(slope)*sqrt(pmax(0, rowSums((X %*% Vb)*X))))
+    list(fit = fit, se.fit = abs(slope)*location$se)
   }
   cdf <- function(q, mu, wt = 1, scale = 1, logp = FALSE) {
     n <- max(length(q), length(mu)); q <- rep_len(q, n); mu <- rep_len(mu, n)
@@ -181,19 +200,21 @@ ordbeta <- function(link = "logit", start = NULL) {
     out <- top+log1p(exp(pmin(a, b)-top))
     out[is.infinite(top) & top < 0] <- -Inf
     out[q < 0] <- -Inf; out[q >= 1] <- 0
+    out[is.na(q) | is.na(mu)] <- NA_real_
     if (logp) out else exp(out)
   }
   qf <- function(p, mu, wt = 1, scale = 1) {
     n <- max(length(p), length(mu)); p <- rep_len(p, n); mu <- rep_len(mu, n)
     prob <- .ordbeta_components(stats::qlogis(mu), getTheta(TRUE)); phi <- getTheta(TRUE)[1]
-    out <- rep(NA_real_, n); ok <- !is.na(p) & p >= 0 & p <= 1
+    out <- rep(NA_real_, n); valid <- !is.na(p) & p >= 0 & p <= 1
+    ok <- valid & !is.na(mu)
     out[ok & p <= prob[, 1]] <- 0
     out[ok & p >= 1-prob[, 3]] <- 1
     mid <- ok & p > prob[, 1] & p < 1-prob[, 3]
     out[mid] <- stats::qbeta((p[mid]-prob[mid,1])/prob[mid,2], mu[mid]*phi, (1-mu[mid])*phi)
     out[ok & p == 0] <- 0; out[ok & p == 1] <- 1
-    if (any(!is.na(p) & !ok)) {
-      out[!is.na(p) & !ok] <- NaN
+    if (any(!is.na(p) & !valid)) {
+      out[!is.na(p) & !valid] <- NaN
       warning("NaNs produced")
     }
     out
@@ -201,22 +222,21 @@ ordbeta <- function(link = "logit", start = NULL) {
   rd <- function(mu, wt = 1, scale = 1) {
     n <- length(mu); p <- .ordbeta_components(stats::qlogis(mu), getTheta(TRUE))
     u <- stats::runif(n); out <- numeric(n)
-    upper <- u >= 1-p[, 3]; mid <- u >= p[, 1] & !upper
+    upper <- !is.na(mu) & u >= 1-p[, 3]; mid <- !is.na(mu) & u >= p[, 1] & !upper
     out[upper] <- 1; phi <- getTheta(TRUE)[1]
     out[mid] <- stats::rbeta(sum(mid), mu[mid]*phi, (1-mu[mid])*phi)
+    out[is.na(mu)] <- NA_real_
     out
   }
   initialize <- expression({
-    if (!is.numeric(y) || is.matrix(y) || any(!is.finite(y)) || any(y < 0 | y > 1))
-      stop("ordbeta requires finite numeric responses in [0,1]")
-    if (any(!is.finite(weights)) || any(weights < 0) || !any(weights > 0) || !is.finite(sum(weights)))
-      stop("ordbeta requires finite nonnegative weights with positive total weight")
+    if (family$needs_setup()) family <- family$configure(family, y, weights, stabilize = TRUE)
     mustart <- (y + .1)/1.2
   })
-  preinitialize <- function(y, family) {
-    G <- attr(family, "G")
-    if (is.null(G)) stop("ordbeta requires gam() with its extended-family setup")
-    w <- G$w
+  configure <- function(family, y, w, stabilize = FALSE) {
+    if (!is.numeric(y) || is.matrix(y) || any(!is.finite(y)) || any(y < 0 | y > 1))
+      stop("ordbeta requires finite numeric responses in [0,1]")
+    if (any(!is.finite(w)) || any(w < 0) || !any(w > 0) || !is.finite(sum(w)))
+      stop("ordbeta requires finite nonnegative weights with positive total weight")
     active <- w > 0; z <- any(y[active] == 0); o <- any(y[active] == 1)
     mid <- y > 0 & y < 1 & active
     if (!any(mid)) stop("ordbeta requires interior observations: precision is unidentified")
@@ -240,10 +260,30 @@ ordbeta <- function(link = "logit", start = NULL) {
       stop("starting cutpoint spacing must be finite")
     init <- c(log(phi), switch(selected, full=c(cuts[1], log(cuts[2]-cuts[1])),
                               lower=cuts[1], upper=cuts[2], beta=numeric()))
-    # Rebuild, rather than mutating the original closure or retaining G.
-    fresh <- .ordbeta_family(selected, unname(init), start)
-    fresh <- mgcv::fix.family.link(fresh)
-    list(family = fresh, Theta = unname(init))
+    mode <<- selected
+    theta <<- unname(init)
+    needs_setup <<- FALSE
+    stabilize_bam <<- stabilize
+    if (nt != length(init)) {
+      nt <<- length(init)
+      bases <<- lapply(0:2, function(level) .ordbeta_basis(nt, level))
+      fbasis <<- .ordbeta_basis(nt, first = TRUE)
+    }
+    family$mode <- mode
+    family$n.theta <- nt
+    family$ini.theta <- theta
+    family
+  }
+  preinitialize <- function(y, family) {
+    G <- attr(family, "G")
+    if (is.null(G)) {
+      # Ordinary bam provides the weights only when evaluating initialize.
+      needs_setup <<- TRUE
+      return(list())
+    }
+    attr(family, "G") <- NULL
+    if (!isTRUE(G$discretize)) family <- mgcv::fix.family.link(family)
+    list(family = family$configure(family, y, G$w))
   }
   attr(preinitialize, "needG") <- TRUE
   lk <- stats::make.link("logit")
@@ -252,12 +292,21 @@ ordbeta <- function(link = "logit", start = NULL) {
                    getTheta = getTheta, putTheta = putTheta, dev.resids = dev.resids,
                    Dd = Dd, ls = ls, aic = aic, variance = variance,
                    initialize = initialize, preinitialize = preinitialize,
+                   needs_setup = function() needs_setup, configure = configure,
                    postproc = postproc, saturated.ll = saturated.ll, residuals = residuals,
                    predict = predict, rd = rd, qf = qf, cdf = cdf,
                    validmu = function(mu) all(is.finite(mu) & mu > 0 & mu < 1)),
               lk[c("linkfun", "linkinv", "mu.eta", "valideta")]),
-            class = c("extended.family", "family"))
+            class = c("ordbeta.family", "extended.family", "family"))
   .inlaws_diagnostic_family(family, "ordbeta")
+}
+
+# Clone before bam captures a local family and passes the same state to its fitter.
+#' @export
+#' @importFrom mgcv fix.family.link
+fix.family.link.ordbeta.family <- function(fam) {
+  fam <- unserialize(serialize(fam, NULL))
+  NextMethod()
 }
 
 .ordbeta_components <- function(eta, par) {

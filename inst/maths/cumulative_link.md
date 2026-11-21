@@ -321,7 +321,7 @@ interval midpoint minus the location, as in `ocat()`.
 | --- | --- |
 | gam | REML, ML, NCV |
 | bam, ordinary | REML, ML, fREML |
-| bam, discrete | fREML, NCV (mgcv 1.9-4 or later) |
+| bam, discrete | fREML, NCV (mgcv 1.9-3 or later) |
 
 This is an `extended.family` with one predictor and global threshold parameters.
 Gam optimizes thresholds within its outer criterion; bam updates them

@@ -28,7 +28,11 @@
 #' Fitted values and `predict(..., type = "response")` are matrices with
 #' columns for scale and shape (in that order), both on their natural scales. They are not
 #' conditional means. Link predictions are log scale and linked shape.
-#' Only `gam()` with ordinary model matrices is supported, not `bam()`.
+#' Fit with `gam()` and ordinary model matrices using REML, NCV or QNCV.
+#' Exact NCV requires the held-out excesses to lie in the support implied by
+#' their neighbourhood-deletion predictors. A trial fit outside that
+#' support has an infinite NCV score. QNCV uses a local quadratic
+#' approximation around the full-data predictors.
 #'
 #' The family includes `rd(mu, wt = NULL, scale = NULL)`,
 #' `qf(p, mu, wt = NULL, scale = NULL)` and
@@ -90,13 +94,14 @@ gpd <- function(link = list("log", "logshift")) {
     shape$d4link <- function(mu) -6 / (mu + 0.5)^4
   }
   scale <- stats::make.link("log")
+  scale$linkinv <- scale$mu.eta <- function(eta) exp(eta)
   scale$d2link <- function(mu) -1 / mu^2
   scale$d3link <- function(mu) 2 / mu^3
   scale$d4link <- function(mu) -6 / mu^4
   family <- structure(list(
     family = "gpd", link = unlist(link), nlp = 2L,
     linfo = list(scale, shape), tri = mgcv::trind.generator(2),
-    ll = .gpd_ll, initialize.coef = .gpd_start,
+    ll = .gpd_ll, ncv = .inlaws_gamlss_ncv, initialize.coef = .gpd_start,
     initialize = expression({
       n <- rep(1, nobs)
       start <- family$initialize.coef(y, x, weights, offset, start, family)
@@ -146,7 +151,7 @@ gpd <- function(link = list("log", "logshift")) {
 # For a >= 1, rho derivatives of H are rational functions. Shape derivatives
 # of those rational functions give every mixed derivative through order four.
 .gpd_derivatives <- function(y, rho, xi, order = 4L) {
-  t <- y * exp(-rho)
+  t <- y / exp(rho)
   v <- xi * t
   w <- 1 + v
   h0 <- .gpd_H(t, xi, order)
@@ -186,7 +191,7 @@ gpd <- function(link = list("log", "logshift")) {
                     d1b = 0, d2b = 0, Hp = NULL, rank = 0, fh = NULL,
                     D = NULL, eta = NULL, ncv = FALSE, sandwich = FALSE) {
   if (is.null(eta)) eta <- .gpd_eta(X, coef, offset)
-  if (is.null(wt)) wt <- rep(1, length(y))
+  wt <- rep_len(if (is.null(wt)) 1 else wt, length(y))
   rho <- eta[, 1L]
   xi <- family$linfo[[2L]]$linkinv(eta[, 2L])
   active <- wt > 0
@@ -198,16 +203,16 @@ gpd <- function(link = list("log", "logshift")) {
   valid <- is.finite(rho) & is.finite(sigma) & sigma > 0 & is.finite(xi) &
     is.finite(yy / sigma) & (1 + xi * (yy / sigma) > 0)
   if (family$link[2L] == "logshift") valid <- valid & (xi > -0.5)
-  if (!all(valid)) {
-    l0 <- rep(0, length(y)); l0[active & !valid] <- -Inf
-    return(list(l = -Inf, l0 = l0))
-  }
+  bad <- !valid
+  yy[bad] <- rho[bad] <- xi[bad] <- 0
   ord <- if (deriv == 0L) 0L else if (deriv == 1L) 2L else if (deriv < 4L) 3L else 4L
   ds <- .gpd_derivatives(yy, rho, xi, ord)
   l0 <- ds$l0 * wt
-  if (!deriv) return(list(l = sum(l0), l0 = l0))
+  l0[bad] <- -Inf
+  ret <- list(l = sum(l0), l0 = l0)
+  if (!deriv || (any(bad) && !ncv)) return(ret)
   sh <- family$linfo[[2L]]
-  es <- eta[, 2L]; es[!active] <- sh$linkfun(0)
+  es <- eta[, 2L]; es[!active | bad] <- sh$linkfun(0)
   # The first likelihood argument is already log scale, so its link here is
   # identity. Public linfo still maps log scale to the natural parameter sigma.
   ig1 <- cbind(1, sh$mu.eta(es))
@@ -219,13 +224,21 @@ gpd <- function(link = list("log", "logshift")) {
                           if (ord >= 3L) ds$l3 * wt else 0,
                           if (ord >= 4L) ds$l4 * wt else 0,
                           ig1, g2, g3, g4, tri$i2, tri$i3, tri$i4, deriv - 1L)
-  ret <- mgcv::gamlss.gH(X, attr(X, "lpi"), de$l1, de$l2, tri$i2,
-                        l3 = de$l3, i3 = tri$i3, l4 = de$l4, i4 = tri$i4,
-                        d1b = d1b, d2b = d2b, deriv = deriv - 1L,
-                        fh = fh, D = D, sandwich = sandwich)
-  if (ncv) { ret$l1 <- de$l1; ret$l2 <- de$l2; ret$l3 <- de$l3 }
-  ret$l <- sum(l0)
-  ret$l0 <- l0
+  jj <- attr(X, "lpi")
+  if (!is.null(jj) && !any(bad)) {
+    gh <- .inlaws_gamlss_gh(X, jj, de$l1, de$l2, tri$i2,
+      l3 = de$l3, i3 = tri$i3, l4 = de$l4, i4 = tri$i4,
+      d1b = d1b, d2b = d2b, deriv = deriv - 1L,
+      fh = fh, D = D, sandwich = sandwich)
+    ret <- c(ret, gh)
+  }
+  if (ncv) {
+    for (k in seq_len(ord)) {
+      name <- paste0("l", k)
+      ret[[name]] <- de[[name]]
+      ret[[name]][bad, ] <- NA_real_
+    }
+  }
   ret
 }
 

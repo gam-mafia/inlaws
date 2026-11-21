@@ -1,4 +1,4 @@
-library(inlaws)
+library("inlaws")
 
 near <- function(x, y, tol = 2e-6) {
   err <- max(abs(x - y) / (1 + abs(y)))
@@ -233,3 +233,48 @@ expect_error(fam$response(cbind(1, .5)), "ordered interval")
 expect_error(fam$response(cbind(0, -Inf)), "positive exact")
 expect_error(fam$response(matrix(1, 2, 3)), "two-column")
 expect_error(mgcv::gam(y ~ x, data = dat, weights = rep(0, nrow(dat)), family = cgamma()), "at least one positive")
+
+# Censoring determines residual signs even when bounds cross the fitted mean.
+rdat <- data.frame(x = seq_len(12L), off = rep(log(.4), 12L))
+values <- c(.24, .42, .39, .25, .55, .38, .32, .35, .81, .95, .7, .2)
+rdat$yc <- cbind(values, c(values[1:10], -Inf, Inf))
+rfit <- gam(yc ~ 1, data = rdat, family = cgamma(.4), method = "REML")
+stopifnot(residuals(rfit)[11] < 0, residuals(rfit)[12] > 0,
+          all(is.na(residuals(rfit, "response")[11:12])),
+          all(is.na(residuals(rfit, "pearson")[11:12])))
+no_intercept <- gam(yc ~ 0 + x + offset(off), data = rdat,
+                     family = cgamma(.4), method = "REML")
+near(no_intercept$null.deviance,
+     sum(no_intercept$family$dev.resids(rdat$yc, exp(rdat$off), 1)))
+expect_error(gam(y ~ s(x, k = 6), data = dat, family = cgamma(),
+                 method = "REML", scale = 2), "likelihood scale is fixed")
+
+# An unused extreme bound must never reach the upper-tail recurrence.
+weighted <- rdat
+weighted$yc[12L, ] <- c(.Machine$double.xmax, Inf)
+weighted$w <- c(rep(1, 11), 0)
+wfit <- gam(yc ~ 1, data = weighted, weights = w,
+             family = cgamma(.4), method = "REML")
+dropped <- gam(yc ~ 1, data = weighted[-12, ], family = cgamma(.4), method = "REML")
+near(coef(wfit), coef(dropped))
+stopifnot(residuals(wfit)[12] == 0)
+
+# A new fit from the same constructor object must leave earlier models intact.
+for (engine in c("gam", "bam", "discrete")) {
+  template <- cgamma()
+  fit_family <- function(data) {
+    if (engine == "gam")
+      return(gam(y ~ s(x, k = 6), data = data, family = template, method = "REML"))
+    bam(y ~ s(x, k = 6), data = data, family = template, discrete = engine == "discrete")
+  }
+  first_fit <- fit_family(dat)
+  phi <- first_fit$family$getTheta(TRUE)
+  first_cdf <- first_fit$family$cdf(1, fitted(first_fit))
+  other <- dat
+  other$y <- exp(3 * (log(dat$y) - mean(log(dat$y))))
+  second_fit <- fit_family(other)
+  stopifnot(abs(second_fit$family$getTheta(TRUE) - phi) > .1)
+  near(first_fit$family$getTheta(TRUE), phi)
+  near(first_fit$family$cdf(1, fitted(first_fit)), first_cdf)
+  near(template$getTheta(TRUE), 1)
+}

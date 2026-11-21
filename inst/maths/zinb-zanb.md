@@ -84,8 +84,8 @@ are tested on both sides and the tiny-mean y=1 curvature is tested explicitly.
 
 Weights multiply every observation likelihood and derivative. Inactive rows
 are replaced by harmless parameters before calculations, then contribute zero.
-The shared-coefficient fourth-order trace workaround from nbls is generalized
-to any number of predictors; nbls's public interface is unchanged.
+The shared-coefficient fourth-order trace accumulates contributions for any
+number of predictors and is shared by the other multiple-predictor families.
 
 ## NCV
 

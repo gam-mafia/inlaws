@@ -57,7 +57,7 @@ the log-response scale, supporting upper tails and log probabilities.
 ## Fitting contracts and validation
 
 The extended family supports gam REML/ML/NCV, ordinary bam REML/ML/fREML,
-and discrete bam fREML/NCV (the latter requires mgcv >= 1.9-4). The general
+and discrete bam fREML/NCV. The general
 family supports gam REML/NCV with two separate coefficient blocks. Its NCV
 adapter subsets offsets using observation indices and applies them exactly
 once, including the full-data gamma adjustment.

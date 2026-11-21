@@ -1,4 +1,4 @@
-library(inlaws)
+library("inlaws")
 near <- function(x,y,tol=1e-5) {
   stopifnot(length(x)==length(y),all(is.finite(x)),all(is.finite(y)),
             max(abs(x-y)) <= tol*max(1,abs(x),abs(y)))
@@ -70,26 +70,22 @@ nei <- list(a=seq_len(n),ma=seq_len(n),d=seq_len(n),md=seq_len(n))
 f <- gam(form,data=d,family=pig(),method="NCV",nei=nei)
 check(f,"NCV"); near(coef(f),coef(loo)); near(f$sp,loo$sp)
 near(f$gcv.ubre,loo$gcv.ubre); near(f$family$getTheta(),loo$family$getTheta())
-if (packageVersion("mgcv") >= "1.9.4") {
-  implicit <- bam(form,data=d,family=pig(),method="NCV",discrete=TRUE,scale=1,nthreads=1)
-  explicit <- bam(form,data=d,family=pig(),method="NCV",nei=nei,discrete=TRUE,scale=1,nthreads=1)
-  check(implicit,"NCV"); check(explicit,"NCV")
-  near(coef(implicit),coef(explicit)); near(implicit$sp,explicit$sp)
-  near(implicit$gcv.ubre,explicit$gcv.ubre)
-}
+implicit <- bam(form,data=d,family=pig(),method="NCV",discrete=TRUE,scale=1,nthreads=1)
+explicit <- bam(form,data=d,family=pig(),method="NCV",nei=nei,discrete=TRUE,scale=1,nthreads=1)
+check(implicit,"NCV"); check(explicit,"NCV")
+near(coef(implicit),coef(explicit)); near(implicit$sp,explicit$sp)
+near(implicit$gcv.ubre,explicit$gcv.ubre)
 nei$ma <- nei$md <- seq.int(3,n,3)
 for (fixed in c(FALSE,TRUE)) {
   theta <- if (fixed) .6 else NULL
   f <- gam(form,data=d,family=pig(theta),method="NCV",nei=nei)
   check(f,"NCV",fixed)
-  if (packageVersion("mgcv") >= "1.9.4") {
-    f <- bam(form,data=d,family=pig(theta),method="NCV",nei=nei,
-             discrete=TRUE,scale=1,nthreads=1)
-    check(f,"NCV",fixed)
-    default <- bam(form,data=d,family=pig(theta),method="NCV",nei=nei,
-                   discrete=TRUE,nthreads=1)
-    check_default(default,f)
-  }
+  f <- bam(form,data=d,family=pig(theta),method="NCV",nei=nei,
+           discrete=TRUE,scale=1,nthreads=1)
+  check(f,"NCV",fixed)
+  default <- bam(form,data=d,family=pig(theta),method="NCV",nei=nei,
+                 discrete=TRUE,nthreads=1)
+  check_default(default,f)
 }
 # Reusing a template does not change previously fitted dispersions.
 template <- pig(-.4)

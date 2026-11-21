@@ -43,6 +43,7 @@
 #' The family includes `cdf(q, mu, wt = 1, scale = 1, lower.tail = TRUE,
 #' log.p = FALSE)`, `qf(p, mu, wt = 1, scale = 1, lower.tail = TRUE,
 #' log.p = FALSE)`, and `rd(mu, wt = 1, scale = 1)`.
+#' The CDF also accepts `logp` for compatibility with other families.
 #' Here `mu` is the latent location, not a category probability or mean.
 #' Scalars recycle against vectors; other lengths must match. `cdf` gives
 #' \eqn{P(Y \le q)} (using the floor of noninteger `q`), `qf` gives the
@@ -89,12 +90,19 @@ cumulative_link <- function(R = NULL,
   # Reuse mgcv's threshold state and extended-family infrastructure, not its
   # logistic likelihood. All distribution-specific components are replaced.
   fam <- mgcv::ocat(R = R, theta = theta)
+  class(fam) <- c("cumulative_link.family", class(fam))
   get_theta <- fam$getTheta
   dist <- .ocat_distribution(link)
   cuts <- function(theta) c(-Inf, -1, -1 + cumsum(exp(theta)), Inf)
   fam$cumulative.link <- link
   fam$family <- paste0("Cumulative link (", link, ")")
   fam$scale <- 1
+  saturated <- fam$ls
+  fam$ls <- function(y, w, theta, scale) {
+    if (length(scale) != 1L || !is.finite(scale) || scale != 1)
+      stop("cumulative_link likelihood scale is fixed at one")
+    saturated(y, w, theta, scale)
+  }
   fam$dev.resids <- function(y, mu, wt, theta = NULL) {
     if (is.null(theta)) theta <- get_theta()
     a <- cuts(theta)
@@ -124,12 +132,21 @@ cumulative_link <- function(R = NULL,
   fam$preinitialize <- function(y, family) {
     if (!is.numeric(y) || any(!is.finite(y)) || any(y != floor(y)) ||
         any(y < 1 | y > R)) stop("response must be integer category labels from 1 to R")
+    G <- attr(family, "G")
+    attr(family, "G") <- NULL
+    # Unlike bam, gam has not called fix.family.link at this point.
+    if (!is.null(G) && !isTRUE(G$discretize))
+      family <- unserialize(serialize(family, NULL))
+    out <- list(family = family)
     if (R > 2L && family$n.theta > 0) {
-      if (!is.null(theta)) return(list(Theta = log(abs(theta))))
-      p <- cumsum(tabulate(y, nbins = R) + 0.5)/(length(y) + R/2)
-      list(Theta = log(pmax(diff(dist$q(p[-R])), 0.01)))
-    } else list()
+      if (is.null(theta)) {
+        p <- cumsum(tabulate(y, nbins = R) + 0.5)/(length(y) + R/2)
+        out$Theta <- log(pmax(diff(dist$q(p[-R])), 0.01))
+      } else out$Theta <- log(abs(theta))
+    }
+    out
   }
+  attr(fam$preinitialize, "needG") <- TRUE
   fam$initialize <- expression({
     a <- c(family$getTheta(TRUE))
     a <- c(a[1L] - 1, a, a[length(a)] + 1)
@@ -143,12 +160,13 @@ cumulative_link <- function(R = NULL,
          family = paste0("Cumulative link (", link, "; ",
                          paste(round(family$getTheta(TRUE), 3), collapse = ","), ")"))
   }
-  fam$cdf <- function(q, mu, wt = 1, scale = 1, lower.tail = TRUE, log.p = FALSE) {
+  fam$cdf <- function(q, mu, wt = 1, scale = 1, lower.tail = TRUE, log.p = FALSE,
+                      logp = log.p) {
     z <- .ocat_recycle(q, mu)
     q <- z[[1L]]; mu <- z[[2L]]
     a <- cuts(get_theta())
     index <- pmin(R, pmax(0, floor(q))) + 1L
-    dist$p(a[index] - mu, lower.tail = lower.tail, log.p = log.p)
+    dist$p(a[index] - mu, lower.tail = lower.tail, log.p = logp)
   }
   fam$qf <- function(p, mu, wt = 1, scale = 1, lower.tail = TRUE, log.p = FALSE) {
     z <- .ocat_recycle(p, mu)
@@ -176,26 +194,17 @@ cumulative_link <- function(R = NULL,
   fam$predict <- function(family, se = FALSE, eta = NULL, y = NULL, X = NULL,
                           beta = NULL, off = NULL, Vb = NULL) {
     if (!is.null(eta)) return(list(family$qf(0.5, eta)))
-    if (is.null(off)) off <- 0
-    if (is.list(X)) {
-      args <- list(X$Xd, beta, k = X$kd, ks = X$ks, ts = X$ts,
-                   dt = X$dt, v = X$v, qc = X$qc, drop = X$drop)
-      mu <- off + do.call(utils::getFromNamespace("Xbd", "mgcv"), args)
-      if (se) {
-        args[[2L]] <- Vb
-        vse <- do.call(utils::getFromNamespace("diagXVXd", "mgcv"), args)
-      }
-    } else {
-      mu <- off + drop(X %*% beta)
-      if (se) vse <- rowSums((X %*% Vb) * X)
-    }
+    location <- .inlaws_location_prediction(X, beta, off, if (se) Vb)
+    mu <- location$eta
     a <- cuts(family$getTheta())
-    prob <- vapply(seq_len(R), function(j)
-      exp(.ocat_log_interval(a[j] - mu, a[j + 1L] - mu, dist)), numeric(length(mu)))
+    prob <- matrix(vapply(seq_len(R), function(j)
+      exp(.ocat_log_interval(a[j] - mu, a[j + 1L] - mu, dist)), numeric(length(mu))),
+      nrow = length(mu), ncol = R)
     if (!se) return(list(prob))
-    dp <- vapply(seq_len(R), function(j)
-      exp(dist$d(a[j] - mu)$logd) - exp(dist$d(a[j + 1L] - mu)$logd), numeric(length(mu)))
-    list(fit = prob, se.fit = abs(dp) * sqrt(pmax(0, vse)))
+    dp <- matrix(vapply(seq_len(R), function(j)
+      exp(dist$d(a[j] - mu)$logd) - exp(dist$d(a[j + 1L] - mu)$logd), numeric(length(mu))),
+      nrow = length(mu), ncol = R)
+    list(fit = prob, se.fit = abs(dp) * location$se)
   }
   fam$residuals <- function(object, type = c("deviance", "working", "response")) {
     type <- match.arg(type)
@@ -205,6 +214,32 @@ cumulative_link <- function(R = NULL,
     attr(d, "sign") * sqrt(pmax(0, d))
   }
   .inlaws_diagnostic_family(fam, "cumulative_link")
+}
+
+# Clone before bam captures a local family and passes the same state to its fitter.
+#' @export
+#' @importFrom mgcv fix.family.link
+fix.family.link.cumulative_link.family <- function(fam) {
+  fam <- unserialize(serialize(fam, NULL))
+  NextMethod()
+}
+
+# Model matrix computations for single-predictor families with custom predictions.
+.inlaws_location_prediction <- function(X, beta, off, Vb = NULL) {
+  if (is.null(off)) off <- 0
+  if (is.list(X)) {
+    args <- list(X$Xd, beta, k = X$kd, ks = X$ks, ts = X$ts,
+                 dt = X$dt, v = X$v, qc = X$qc, drop = X$drop)
+    eta <- off + do.call(utils::getFromNamespace("Xbd", "mgcv"), args)
+    if (!is.null(Vb)) {
+      args[[2L]] <- Vb
+      variance <- do.call(utils::getFromNamespace("diagXVXd", "mgcv"), args)
+    }
+  } else {
+    eta <- off + drop(X %*% beta)
+    if (!is.null(Vb)) variance <- rowSums((X %*% Vb) * X)
+  }
+  list(eta = eta, se = if (!is.null(Vb)) sqrt(pmax(0, variance)))
 }
 
 .ocat_recycle <- function(x, mu) {
@@ -287,8 +322,12 @@ cumulative_link <- function(R = NULL,
   lo <- a[y] - mu; hi <- a[y + 1L] - mu
   lp <- .ocat_log_interval(lo, hi, dist)
   dl <- dist$d(lo); dh <- dist$d(hi)
-  l <- dl$h * exp(dl$logd - lp); h <- dh$h * exp(dh$logd - lp)
-  l[is.infinite(lo), ] <- 0; h[is.infinite(hi), ] <- 0
+  dl_ratio <- exp(dl$logd - lp); dh_ratio <- exp(dh$logd - lp)
+  l <- dl$h * dl_ratio; h <- dh$h * dh_ratio
+  # In the extreme-value tails a density ratio can underflow while its
+  # polynomial multiplier overflows, even when their product tends to zero.
+  l[which(is.infinite(lo) | dl_ratio == 0), ] <- 0
+  h[which(is.infinite(hi) | dh_ratio == 0), ] <- 0
   r <- sweep(h - l, 2L, c(-1, 1, -1, 1), `*`)
   r1 <- r[, 1L]; r2 <- r[, 2L]; r3 <- r[, 3L]; r4 <- r[, 4L]
   mul <- function(x) { z <- -2 * wt * x; z[wt == 0] <- 0; z }

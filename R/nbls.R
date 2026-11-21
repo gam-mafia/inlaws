@@ -20,7 +20,8 @@
 #'
 #'   REML fitting supports outer Newton, outer BFGS, and extended Fellner--Schall
 #'   (`optimizer = "efs"`), using analytic derivatives through fourth order.
-#'   NCV, `bam()`, and `gamm()` are not supported. Observations must be
+#'   NCV and QNCV are also supported in `gam()`. Use `gam()` for both predictors.
+#'   Observations must be
 #'   nonnegative integer counts, with finite nonnegative prior weights.
 #'   An all-zero response among positive-weight observations is not identifiable
 #'   and is rejected. Size can tend to infinity for Poisson or underdispersed
@@ -77,6 +78,7 @@ nbls <- function(link = list("log", "log")) {
   })
   family <- structure(list(family = "nbls", link = unlist(link), nlp = 2L,
     linfo = linfo, tri = mgcv::trind.generator(2), ll = .nbls_ll,
+    ncv = .inlaws_gamlss_ncv,
     # mgcv 1.9-3 passes G$offxset (a typo) to its general-family EFS fitter.
     # Its supported preinitialize hook can supply this alias without changing
     # mgcv or capturing training offsets in the likelihood closure.
@@ -181,9 +183,8 @@ nbls <- function(link = list("log", "log")) {
                       d1b = 0, d2b = 0, Hp = NULL, rank = 0, fh = NULL,
                       D = NULL, eta = NULL, ncv = FALSE, sandwich = FALSE) {
   if (is.list(X)) stop("nbls does not support discrete model matrices")
-  if (ncv) stop("nbls does not support NCV")
   jj <- attr(X, "lpi")
-  if (length(jj) != 2L) stop("nbls requires two linear predictors")
+  if (is.null(eta) && length(jj) != 2L) stop("nbls requires two linear predictors")
   n <- length(y)
   if (is.null(wt)) wt <- rep.int(1, n)
   if (is.null(eta)) {
@@ -222,51 +223,15 @@ nbls <- function(link = list("log", "log")) {
       ig1, g[[1L]], if (order >= 3L) g[[2L]] else NULL,
       if (order == 4L) g[[3L]] else NULL,
       tri$i2, tri$i3, tri$i4, deriv = deriv - 1L)
-    shared <- deriv == 4L && anyDuplicated(unlist(jj)) > 0L
-    ret <- mgcv::gamlss.gH(X, jj, de$l1, de$l2, tri$i2,
+    if (!is.null(jj)) ret <- .inlaws_gamlss_gh(X, jj, de$l1, de$l2, tri$i2,
       l3 = de$l3, i3 = tri$i3, l4 = de$l4, i4 = tri$i4,
-      d1b = d1b, d2b = d2b, deriv = if (shared) 2L else deriv - 1L, fh = fh, D = D,
+      d1b = d1b, d2b = d2b, deriv = deriv - 1L, fh = fh, D = D,
       sandwich = sandwich)
-    # mgcv 1.9-3/1.9-4's fourth-order trace accumulator overwrites overlapping
-    # predictor columns. Accumulate these contractions explicitly for shared
-    # coefficients; its gradient, Hessian, and third-order paths are additive.
-    if (shared) ret$trHid2H <- .nbls_shared_trace(X, jj, de, tri, d1b, d2b, fh, D)
+    if (ncv) ret[c("l1", "l2", "l3")] <- de[c("l1", "l2", "l3")]
   }
   ret$l <- sum(l0)
   ret$l0 <- l0
   ret
-}
-
-.nbls_shared_trace <- function(X, jj, de, tri, d1b, d2b, fh, D) {
-  if (is.null(D)) D <- rep(1, ncol(X))
-  if (is.list(fh)) {
-    ev <- fh$values
-    ev <- ifelse(ev > 0, 1 / ev, 0)
-    V <- (fh$vectors %*% (ev * t(fh$vectors))) * outer(D, D)
-  } else {
-    pivot <- attr(fh, "pivot")
-    if (is.null(pivot)) pivot <- seq_len(ncol(X))
-    V <- chol2inv(fh)[order(pivot), order(pivot), drop = FALSE] * outer(D, D)
-  }
-  x <- lapply(jj, function(j) X[, j, drop = FALSE])
-  a <- lapply(seq_along(jj), function(j) x[[j]] %*% d1b[jj[[j]], , drop = FALSE])
-  b <- lapply(seq_along(jj), function(j) x[[j]] %*% d2b[jj[[j]], , drop = FALSE])
-  out <- numeric(ncol(d2b))
-  for (i in seq_along(jj)) for (j in i:length(jj)) {
-    h <- rowSums((x[[i]] %*% V[jj[[i]], jj[[j]], drop = FALSE]) * x[[j]])
-    kk <- 0L
-    for (k in seq_len(ncol(d1b))) for (l in k:ncol(d1b)) {
-      kk <- kk + 1L
-      v <- numeric(nrow(X))
-      for (q in seq_along(jj)) {
-        v <- v + de$l3[, tri$i3[i, j, q]] * b[[q]][, kk]
-        for (s in seq_along(jj)) v <- v + de$l4[, tri$i4[i, j, q, s]] *
-          a[[q]][, k] * a[[s]][, l]
-      }
-      out[kk] <- out[kk] + (if (i == j) 1 else 2) * sum(h * v)
-    }
-  }
-  out
 }
 
 .nbls_initialize <- function(y, x, E, wt, offset, start, family) {
@@ -339,13 +304,14 @@ nbls <- function(link = list("log", "log")) {
   ans
 }
 
-.nbls_residuals <- function(object, type = c("deviance", "pearson", "response")) {
+.nbls_residuals <- function(object, type = c("deviance", "pearson", "response", "scaled.pearson")) {
   type <- match.arg(type)
   mu <- object$fitted.values[, 1L]; theta <- object$fitted.values[, 2L]
   r <- object$y - mu
   if (type == "deviance") r <- sign(r) * sqrt(.nbls_deviance(object$y, mu, theta,
                                                             object$prior.weights))
-  if (type == "pearson") r <- sqrt(object$prior.weights) * r / sqrt(mu + mu^2 / theta)
+  if (type %in% c("pearson", "scaled.pearson"))
+    r <- sqrt(object$prior.weights) * r / sqrt(mu + mu^2 / theta)
   r
 }
 

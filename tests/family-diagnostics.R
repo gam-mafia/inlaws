@@ -54,6 +54,18 @@ for (i in 1:3) {
 stopifnot(all(d$qf(c(0, .5, 1)) <= trials))
 near(d$cdf(c(-1, 2.5, Inf)) + d$cdf(c(-1, 2.5, Inf), lower_tail = FALSE), rep(1, 3))
 
+# Both count-composition diagnostics retain complementary tails near the
+# binomial limit, where subtracting two log beta functions loses precision.
+phi <- 1e18
+d <- diagnostic(betabinomial(), cbind(.3, phi), cbind(30, 70))
+near(d$cdf(30), pbinom(30, 100, .3))
+near(d$cdf(30, lower_tail = FALSE), pbinom(30, 100, .3, lower.tail = FALSE))
+near(d$qf(.6), qbinom(.6, 100, .3))
+eta <- cbind(qlogis(.7), log(phi)); y <- cbind(30, 70)
+d <- diagnostic(dirmult(), eta, y, eta)
+near(d$cdf(y), matrix(pbinom(y, 100, c(.3, .7)), 1))
+near(d$cdf(y, lower_tail = FALSE), matrix(pbinom(y, 100, c(.3, .7), lower.tail = FALSE), 1))
+
 # Unknown observation processes retain intervals without guessing thresholds.
 y <- structure(c(.4, 1, 2), censor = c(-Inf, 1, Inf))
 for (z in list(list(cgamma(.6), rep(2, 3)), list(cgammals(), cbind(rep(2, 3), .6)),

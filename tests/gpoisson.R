@@ -1,4 +1,4 @@
-library(inlaws)
+library("inlaws")
 
 near <- function(x, y, tol = 1e-7) {
   stopifnot(isTRUE(all.equal(as.numeric(x), as.numeric(y), tolerance = tol,
@@ -68,6 +68,9 @@ for (phi in c(1 + 1e-5, 1.5, 5, 30)) {
   mm <- fam$Dd(y, mu - h, t, w, 2)
   tp <- fam$Dd(y, mu, t + h, w, 2)
   tm <- fam$Dd(y, mu, t - h, w, 2)
+  near(d$EDmu2, 2 * w / (sqrt(phi) * mu))
+  near(d$EDmu2th, (tp$EDmu2 - tm$EDmu2) / (2 * h), 2e-6)
+  stopifnot(d$Dmu2[1] == 0, d$EDmu2[1] > 0)
   near(d$Dmu, -2*w*(ll(y, mu+h, t)-ll(y, mu-h, t))/(2*h), 2e-6)
   near(d$Dth, (fam$dev.resids(y, mu, w, t+h)-fam$dev.resids(y, mu, w, t-h))/(2*h), 2e-6)
   for (pair in list(c("Dmu2", "Dmu"), c("Dmu3", "Dmu2"), c("Dmu4", "Dmu3")))
@@ -179,4 +182,35 @@ set.seed(44)
 pd <- data.frame(y = rpois(500, 4))
 edge <- gam(y ~ 1, data = pd, family = gpoisson(), method = "REML")
 stopifnot(edge$converged, is.finite(edge$family$getTheta()), edge$family$getTheta(TRUE) >= 1)
+
+# The ordinary bam IRLS step needs positive information at zero counts.
+# The discrete fitter must report likelihood and deviance at its final phi.
+set.seed(88)
+dat <- data.frame(x = runif(100))
+dat$y <- gpoisson(4)$rd(exp(1 + sin(6 * dat$x)))
+stopifnot(sum(dat$y == 0) > 20)
+count_control <- gam.control(maxit = 80)
+template <- gpoisson()
+for (fam in list(gpoisson(4), template)) {
+  for (discrete in c(FALSE, TRUE)) {
+    b <- bam(y ~ s(x, k = 5), data = dat, family = fam, discrete = discrete,
+             method = "fREML", scale = 1, control = count_control)
+    th <- b$family$getTheta()
+    intercept_score <- sum(b$family$Dd(dat$y, fitted(b), th, 1)$Dmu * fitted(b)) / 2
+    stopifnot(b$converged, b$iter < count_control$maxit, abs(intercept_score) < .002,
+              fam$getTheta(TRUE) == if (fam$n.theta) 2 else 4)
+    near(as.numeric(logLik(b)), sum(ll(dat$y, fitted(b), th)))
+    near(deviance(b), sum(residuals(b)^2))
+  }
+}
+
+# Cloning must preserve mgcv's selector flags for both NCV objectives.
+set.seed(1)
+dat <- data.frame(x = runif(125))
+dat$y <- gpoisson(1.5)$rd(exp(1.6 + sin(6 * dat$x)))
+for (method in c("NCV", "QNCV")) {
+  b <- gam(y ~ s(x, k = 5), data = dat, family = template, method = method)
+  stopifnot(identical(b$method, method), b$outer.info$conv == "full convergence",
+            b$family$qapprox == (method == "QNCV"), template$getTheta(TRUE) == 2)
+}
 cat("Generalized Poisson distribution, derivatives and fitting: passed\n")

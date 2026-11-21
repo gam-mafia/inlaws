@@ -14,14 +14,14 @@ value less than minus one estimates phi starting at \code{abs(theta)}.}
 \item{link}{Only \code{"log"} is supported.}
 }
 \value{
-An \code{extended.family} object for \code{gam()}, including \code{rd}, \code{cdf}
+An \code{extended.family} object, including \code{rd}, \code{cdf}
 and \code{qf} distribution callbacks.
 }
 \description{
 \ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#experimental}{\figure{lifecycle-experimental.svg}{options: alt='[Experimental]'}}}{\strong{[Experimental]}}
 
-A GP-1 extended family for \code{\link[mgcv:gam]{mgcv::gam()}}, with a log link for the mean
-and one fixed or estimated global dispersion parameter.
+A GP-1 extended family for \code{\link[mgcv:gam]{mgcv::gam()}} and \code{\link[mgcv:bam]{mgcv::bam()}}, with a log link
+for the mean and one fixed or estimated global dispersion parameter.
 }
 \details{
 With \code{a = mu / sqrt(phi)} and \code{b = 1 - 1 / sqrt(phi)}, the probability
@@ -30,13 +30,16 @@ The mean is mu and the variance is \code{mu * phi}. Only overdispersion is
 estimated: phi > 1. Fixed \code{theta = 1} gives the exact Poisson family.
 Underdispersion and a dispersion linear predictor are not supported.
 
-Use \code{method = "REML"} or \code{"ML"}. The additional likelihood scale is
-fixed at one. \code{getTheta(TRUE)} returns phi; \code{getTheta()} returns
+\code{gam()} supports \code{method = "REML"}, \code{"ML"}, \code{"NCV"} and \code{"QNCV"}.
+\code{bam()} supports its extended-family selectors, including \code{"fREML"} and,
+with \code{discrete = TRUE}, \code{"fREML"} and \code{"NCV"}. Supply \code{scale = 1} to
+\code{bam()} so that \code{logLik()} treats the likelihood scale as fixed.
+\code{getTheta(TRUE)} returns phi. \code{getTheta()} returns
 \code{log(phi - 1)}, or \code{numeric(0)} for fixed Poisson (no nuisance parameter).
 Estimation approaches
 the Poisson boundary without automatically switching models; almost
 Poisson or underdispersed data can give weak dispersion identification.
-\code{bam()} and other smoothing-selection methods have not been validated.
+NCV and QNCV can have convergence difficulties when estimating dispersion.
 In mgcv 1.9-4, ML can fail with a LAPACK error for entirely unpenalized
 models when individual observations have negative log-link curvature.
 This is an mgcv zero-column SVD limitation; use REML for such models.
@@ -46,9 +49,9 @@ count must have positive weight for a finite log-mean fit. Prior weights
 multiply likelihood contributions; they do not alter the distribution
 used for simulation or quantiles. Offsets have their usual log-mean
 interpretation. Deviance uses the saturated mean at fixed phi, which
-generally differs from y. The fitting callbacks use observed information
-as an estimate of expected information (exact expected information for
-fixed Poisson).
+generally differs from y. The fitting callbacks use the positive expected
+information of the latent immigrant count as working information. It is
+exact at the Poisson boundary.
 
 Distribution callbacks condition on fitted parameters. The CDF is
 right-continuous and accepts \code{logp = TRUE}. Quantiles at probabilities

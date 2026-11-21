@@ -38,10 +38,10 @@ they do not change the response distribution. Zero weights are allowed.
 Responses must be finite positive numeric vectors; censoring is not supported.
 Missing rows are handled by the fitter's \code{na.action}.
 
-Supported routes are \code{gam()} with REML, ML or NCV, ordinary \code{bam()} with
-REML, ML or fREML, and \code{bam(discrete = TRUE)} with fREML or NCV. Discrete
-NCV requires mgcv >= 1.9-4. Ordinary REML and ML do not use discretization;
-\code{bam()} NCV requires discretization. NCV accepts grouped neighbourhoods
+Supported routes are \code{gam()} with REML, ML, NCV or QNCV, ordinary \code{bam()} with
+REML, ML or fREML, and \code{bam(discrete = TRUE)} with fREML or NCV.
+Ordinary REML and ML use the non-discrete fitter.
+NCV accepts grouped neighbourhoods
 through \code{nei}. \code{gamm()} and unlisted smoothing criteria are not supported.
 
 Response predictions are plug-in conditional arithmetic means, with

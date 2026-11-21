@@ -31,9 +31,9 @@ numerical inversion so that the expectation is exactly mu. Thus both
 free distribution parameters are modelled. nu = 1 is Poisson, nu > 1
 is underdispersed, and 0 < nu < 1 is overdispersed.
 
-REML supports outer Newton and BFGS optimization. NCV uses BFGS, with
+REML supports outer Newton and BFGS optimization. NCV and QNCV use BFGS, with
 default leave-one-out or neighbourhoods supplied through \code{nei}.
-This family is intended for \code{gam()} only. ML, QNCV, EFS, \code{bam()} and
+This family is intended for \code{gam()} only. ML, EFS, \code{bam()} and
 \code{gamm()} are outside the supported scope. Separate coefficients are
 required for the predictors; covariates can appear in both formulae.
 

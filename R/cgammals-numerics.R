@@ -7,14 +7,14 @@
   out
 }
 
-# Bivariate Taylor coefficients in (log(mu), log(phi)), through total order
-# four. The polynomial arithmetic is shared with the lognormal evaluator;
-# gamma-specific probability recurrences below never numerically difference.
-.cgammals_eval <- function(y, eta1, eta2, order = 0L) {
+# Bivariate Taylor coefficients through total order four. The mean coordinate
+# is log(mu) in predictor mode and mu otherwise. Gamma-specific probability
+# recurrences use analytic Taylor arithmetic shared with the lognormal family.
+.cgammals_eval <- function(y, eta1, eta2, order = 0L, predictor = TRUE) {
   r <- .cg_response(y)
   n <- length(r$y)
   eta1 <- rep_len(eta1, n); eta2 <- rep_len(eta2, n)
-  j <- .clnormal_jets(order, order)
+  j <- .clnormal_jets(order, if (predictor) order else 2L)
   C <- j$constant; M <- j$multiply
   inv <- function(x) j$compose(x, lapply(0:order, function(k) (-1)^k/x[, 1]^(k+1)))
   u <- C(eta1); t <- C(eta2)
@@ -22,6 +22,7 @@
     u[, which(j$powers[, 1] == 1 & j$powers[, 2] == 0)] <- 1
     t[, which(j$powers[, 1] == 0 & j$powers[, 2] == 1)] <- 1
   }
+  if (!predictor) u <- j$log(u)
   K <- j$exp(-t)
   lgammajet <- function(k) {
     coeff <- list(lgamma(k[, 1]))
@@ -58,7 +59,8 @@
       converged <- FALSE
       if (series) {
         term <- total <- one
-        for (a in seq_len(10000L)) {
+        # Near x = k the series can require tens of thousands of terms.
+        for (a in seq_len(50000L)) {
           term <- M(term, M(X, inv(kk + a*one)))
           total <- total + term
           if (all(is.finite(term)) && all(abs(term) < 2e-14*(1+abs(total)))) {
@@ -78,8 +80,12 @@
           d <- inv(b + M(aa, d))
           cc <- b + M(aa, inv(cc))
           delta <- M(cc, d)
-          h <- M(h, delta)
-          if (all(is.finite(delta)) && all(abs(delta-one) < 2e-14)) {
+          change <- M(h, delta - one)
+          h <- h + change
+          # Compare the contribution with the accumulated coefficients.
+          # Higher derivatives of delta can hit an absolute round-off floor.
+          if (all(is.finite(change)) &&
+              all(abs(change) <= 2e-14 * pmax(abs(h), abs(h[, 1])))) {
             converged <- TRUE
             break
           }
@@ -106,9 +112,10 @@
   ii <- which(r$exact)
   if (length(ii)) ell[ii, ] <- density(r$y[ii], u[ii, , drop = FALSE],
                                       t[ii, , drop = FALSE], K[ii, , drop = FALSE])
-  narrow <- !r$exact & .cg_narrow(r$lo, r$hi, exp(eta1), K[, 1])
+  mu <- if (predictor) exp(eta1) else eta1
+  narrow <- !r$exact & .cg_narrow(r$lo, r$hi, mu, K[, 1])
   regular <- !r$exact & !narrow
-  lower <- stats::pgamma(exp(log(r$lo)-eta1-eta2), K[, 1]) < 0.5
+  lower <- stats::pgamma(exp(log(r$lo) - u[, 1] - eta2), K[, 1]) < 0.5
   for (lt in c(TRUE, FALSE)) {
     ii <- which(regular & lower == lt)
     if (!length(ii)) next

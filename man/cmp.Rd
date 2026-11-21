@@ -26,8 +26,8 @@ functions.
 \description{
 \ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#experimental}{\figure{lifecycle-experimental.svg}{options: alt='[Experimental]'}}}{\strong{[Experimental]}}
 
-An extended family for \code{\link[mgcv:gam]{mgcv::gam()}} with a log link for the exact mean
-and a fixed or estimated global dispersion parameter.
+An extended family for \code{\link[mgcv:gam]{mgcv::gam()}} and \code{\link[mgcv:bam]{mgcv::bam()}} with a log link for
+the exact mean and a fixed or estimated global dispersion parameter.
 }
 \details{
 The probability at integer y >= 0 is proportional to
@@ -39,11 +39,18 @@ Supplying another scale to \code{gam()} is an error. An all-zero response
 among observations with positive weights has no finite log-mean fit
 and is rejected.
 
-Use \code{method = "REML"}. This pure-R reference implementation uses adaptive
-summation and analytic Taylor arithmetic for derivatives. Extreme means
-or dispersion can exhaust numerical limits, which produces an error.
-Large-data performance, \code{bam()}, and other smoothing-selection methods
-have not been validated. Near-deterministic data may not have a finite
+\code{gam()} supports \code{method = "REML"}, \code{"ML"}, \code{"NCV"} and \code{"QNCV"}.
+\code{bam()} supports its extended-family selectors, including \code{"fREML"} and,
+with \code{discrete = TRUE}, \code{"fREML"} and \code{"NCV"}. Supply \code{scale = 1} to
+\code{bam()} so that \code{logLik()} treats the likelihood scale as fixed.
+Entirely unpenalized ML fits can encounter an upstream LAPACK error when
+individual observations have negative log-link curvature. Use REML in
+this case.
+
+This pure-R reference implementation uses adaptive summation and analytic
+Taylor arithmetic for derivatives. Large-data performance has not been
+validated. Extreme means or dispersion can exhaust numerical limits,
+which produces an error. Near-deterministic data may not have a finite
 dispersion estimate.
 
 Prior weights multiply log likelihood contributions; they do not change

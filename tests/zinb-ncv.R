@@ -1,4 +1,4 @@
-library(inlaws)
+library("inlaws")
 near <- function(x, y, tol = 1e-5) stopifnot(length(x) == length(y), all(is.finite(x)), all(is.finite(y)), max(abs(x - y) / pmax(1, abs(x), abs(y))) < tol)
 ns <- asNamespace("mgcv")
 setup <- get("Sl.setup", ns)

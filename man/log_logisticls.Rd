@@ -27,7 +27,7 @@ infinite for \code{s >= 0.5}; these rows have \code{NA} Pearson residuals.
 Responses are finite positive numeric vectors, without censoring.
 Weights are likelihood replication weights, including zero weights.
 
-Supports \code{gam()} REML and NCV, including grouped neighbourhoods and
+Supports \code{gam()} REML, NCV, and QNCV, including grouped neighbourhoods and
 offsets in both predictors. \code{bam()}, \code{gamm()} and ML selection are not
 supported. Separate coefficients are required for the two predictors;
 shared coefficients via additional formulae are not supported.

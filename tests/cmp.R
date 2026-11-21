@@ -1,4 +1,4 @@
-library(inlaws)
+library("inlaws")
 near_cmp <- function(x, y, tol = 1e-7) {
   stopifnot(length(x) == length(y), all(is.finite(x)), all(is.finite(y)),
             all(abs(x - y) <= tol * (1 + abs(y))))
@@ -80,6 +80,9 @@ near_cmp(AIC(bc), AIC(bp), 2e-6)
 near_cmp(residuals(bc, type = "deviance"), residuals(bp, type = "deviance"), 2e-5)
 near_cmp(predict(bc, newdata = dat[1:8, ], type = "response"), fitted(bc)[1:8])
 stopifnot(all(is.finite(predict(bc, se.fit = TRUE)$se.fit)))
+nointercept <- gam(y ~ x - 1 + offset(log(exposure)), data = dat, weights = w,
+                   family = cmp(1), method = "REML")
+near_cmp(nointercept$null.deviance, sum(poisson()$dev.resids(dat$y, dat$exposure, dat$w)))
 pp <- cmp(1)
 near_cmp(pp$variance(c(.01, 1, 10)), c(.01, 1, 10))
 stopifnot(length(pp$variance(numeric())) == 0L,
@@ -134,6 +137,23 @@ stopifnot(b2$converged, b2$family$getTheta(TRUE) < 1,
           identical(old, b1$family$getTheta(TRUE)), fam$getTheta(TRUE) == 1)
 stopifnot(cmp(-2)$getTheta(TRUE) == 2, cmp(-2)$n.theta == 1L,
           cmp(2)$n.theta == 0L, cmp(0)$n.theta == 1L)
+
+# Both bam fitters must retain their fitted dispersion without modifying the
+# template or a previous fit, including when finalizing likelihood diagnostics.
+set.seed(31)
+dat <- data.frame(x = runif(45))
+dat$y <- cmp(.65)$rd(exp(1 + sin(6 * dat$x)))
+fam <- cmp(-.8)
+ordinary <- bam(y ~ s(x, k = 5), data = dat, family = fam, scale = 1)
+old <- ordinary$family$getTheta(TRUE)
+discrete <- bam(y ~ s(x, k = 5), data = dat, family = fam, scale = 1, discrete = TRUE)
+stopifnot(abs(old - .8) > .01, identical(old, ordinary$family$getTheta(TRUE)),
+          fam$getTheta(TRUE) == .8)
+for (fit in list(ordinary, discrete)) {
+  ll <- -fit$family$aic(dat$y, fitted(fit), wt = fit$prior.weights, dev = deviance(fit)) / 2
+  near_cmp(as.numeric(logLik(fit)), ll)
+  near_cmp(deviance(fit), sum(residuals(fit)^2))
+}
 
 error_cmp(cmp(link = "identity"), "log link")
 error_cmp(cmp(theta = NA_real_), "finite")

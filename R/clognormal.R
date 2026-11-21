@@ -198,9 +198,9 @@
 #' With `mu = exp(eta)`, the model is
 #' `log(Y) ~ N(log(mu) - sigma^2/2, sigma^2)`, so `mu = E[Y]`.
 #'
-#' @param theta Log-response standard deviation: `NULL` estimates it starting
-#'   at one; a positive value fixes it; a negative value specifies the negative
-#'   of its starting value for estimation. Zero is not allowed.
+#' @param theta Log-response standard deviation: `NULL` or zero estimates it
+#'   starting at one; a positive value fixes it; a negative value requests
+#'   estimation starting at `abs(theta)`.
 #' @param link Mean link; currently only `"log"` is supported.
 #' @param observe Optional function applying a known, row-independent observation
 #'   rule to simulated responses for diagnostic references. See
@@ -217,6 +217,7 @@
 #'   precision weights as in `mgcv::cnorm()`. The single global `sigma` is
 #'   estimated alongside smoothing parameters; it has no separate predictor.
 #'   `family$getTheta(TRUE)` retrieves `sigma` (`FALSE` gives `log(sigma)`).
+#'   The additional mgcv likelihood scale is fixed at one.
 #'
 #'   Fitted values and response predictions are the arithmetic mean of the
 #'   underlying, uncensored distribution, conditional on the model terms.
@@ -258,10 +259,10 @@
 clognormal <- function(theta = NULL, link = "log", observe = NULL) {
   if (!identical(link, "log")) stop('clognormal supports only link = "log"')
   if (!is.null(theta) && (!is.numeric(theta) || length(theta) != 1L ||
-      !is.finite(theta) || theta == 0)) stop("theta must be NULL or a finite non-zero number")
-  estimated <- is.null(theta) || theta < 0
+      !is.finite(theta))) stop("theta must be NULL or a single finite numeric standard deviation")
+  estimated <- is.null(theta) || theta <= 0
   state <- new.env(parent = emptyenv())
-  state$theta <- if (is.null(theta)) 0 else log(abs(theta))
+  state$theta <- if (is.null(theta) || theta == 0) 0 else log(abs(theta))
   getTheta <- function(trans = FALSE) if (trans) exp(state$theta) else state$theta
   putTheta <- function(theta) { state$theta <- theta }
   dev.resids <- function(y, mu, wt, theta = NULL) {
@@ -285,6 +286,9 @@ clognormal <- function(theta = NULL, link = "log", observe = NULL) {
     out
   }
   ls <- function(y, w, theta, scale) {
+    if (!length(theta)) theta <- getTheta()
+    if (length(scale) != 1L || !is.finite(scale) || scale != 1)
+      stop("clognormal likelihood scale is fixed at one")
     r <- .clnormal_eval(y, rep(1, length(if (is.matrix(y)) y[, 1] else y)), theta, 2L)
     take <- function(b) {
       v <- w*r$sat[, which(r$powers[, 1] == 0 & r$powers[, 2] == b)]*factorial(b)
@@ -314,9 +318,14 @@ clognormal <- function(theta = NULL, link = "log", observe = NULL) {
     ans
   }
   postproc <- function(family, y, prior.weights, fitted, linear.predictors, offset, intercept) {
-    null <- utils::getFromNamespace("find.null.dev", "mgcv")
-    list(null.deviance = null(family, .clnormal_response(y), linear.predictors,
-      offset, prior.weights), family = paste0("clognormal(", round(family$getTheta(TRUE), 3), ")"))
+    y <- .clnormal_response(y)
+    null <- if (intercept) {
+      find_null_deviance <- utils::getFromNamespace("find.null.dev", "mgcv")
+      find_null_deviance(family, y, linear.predictors, offset, prior.weights)
+    } else sum(family$dev.resids(y, family$linkinv(offset), prior.weights))
+    list(null.deviance = null,
+         deviance = sum(family$dev.resids(y, fitted, prior.weights)),
+         family = paste0("clognormal(", round(family$getTheta(TRUE), 3), ")"))
   }
   residuals <- function(object, type = "deviance", ...) {
     type <- match.arg(type, c("deviance", "pearson", "scaled.pearson", "working", "response"))
@@ -342,9 +351,10 @@ clognormal <- function(theta = NULL, link = "log", observe = NULL) {
     list(validmu = function(mu) all(is.finite(mu) & mu > 0),
       dev.resids = dev.resids, Dd = Dd, ls = ls, aic = aic,
       initialize = initialize, prepare.response = .clnormal_response,
+      preinitialize = .inlaws_censored_preinitialize,
       subsety = subsety, postproc = postproc, residuals = residuals,
       n.theta = as.integer(estimated), ini.theta = state$theta,
-      getTheta = getTheta, putTheta = putTheta, no.r.sq = TRUE,
+      getTheta = getTheta, putTheta = putTheta, scale = 1, no.r.sq = TRUE,
       variance = function(mu) mu^2*expm1(getTheta(TRUE)^2),
       rd = function(mu, wt, scale) stats::rlnorm(length(mu), log(mu) - getTheta(TRUE)^2/2, getTheta(TRUE)),
       qf = function(p, mu, wt = 1, scale = 1, lower.tail = TRUE, log.p = FALSE)
@@ -353,6 +363,14 @@ clognormal <- function(theta = NULL, link = "log", observe = NULL) {
       cdf = function(q, mu, wt = 1, scale = 1, logp = FALSE, lower.tail = TRUE)
         stats::plnorm(q, log(mu) - getTheta(TRUE)^2/2, getTheta(TRUE),
                       lower.tail = lower.tail, log.p = logp))),
-    class = c("extended.family", "family"))
+    class = c("clognormal.family", "extended.family", "family"))
   .inlaws_diagnostic_family(family, "clognormal", observe)
+}
+
+#' @export
+#' @importFrom mgcv fix.family.link
+fix.family.link.clognormal.family <- function(fam) {
+  fam <- unserialize(serialize(fam, NULL))
+  fam$.inlaws_censored_isolated <- TRUE
+  NextMethod()
 }

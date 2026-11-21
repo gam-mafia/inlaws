@@ -7,9 +7,9 @@
 clognormal(theta = NULL, link = "log", observe = NULL)
 }
 \arguments{
-\item{theta}{Log-response standard deviation: \code{NULL} estimates it starting
-at one; a positive value fixes it; a negative value specifies the negative
-of its starting value for estimation. Zero is not allowed.}
+\item{theta}{Log-response standard deviation: \code{NULL} or zero estimates it
+starting at one; a positive value fixes it; a negative value requests
+estimation starting at \code{abs(theta)}.}
 
 \item{link}{Mean link; currently only \code{"log"} is supported.}
 
@@ -41,6 +41,7 @@ Prior weights are non-negative case (likelihood) weights, not log-scale
 precision weights as in \code{mgcv::cnorm()}. The single global \code{sigma} is
 estimated alongside smoothing parameters; it has no separate predictor.
 \code{family$getTheta(TRUE)} retrieves \code{sigma} (\code{FALSE} gives \code{log(sigma)}).
+The additional mgcv likelihood scale is fixed at one.
 
 Fitted values and response predictions are the arithmetic mean of the
 underlying, uncensored distribution, conditional on the model terms.

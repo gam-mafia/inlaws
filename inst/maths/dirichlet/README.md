@@ -105,8 +105,7 @@ https://paulbuerkner.com/brms/reference/brmsfamily.html
 
 ## Fitting support
 
-The family uses exported mgcv derivative helpers and needs no core patch.
-REML is the supported smoothing criterion. NCV is not provided; mgcv may
-warn and fall back to REML. Both bam paths reject general families in the
-supported mgcv releases. Enabling bam requires a separate multiple-predictor
-fitting-engine project, not a family flag or a change of class.
+The family supports REML, NCV, and QNCV in `gam()`. The cross-validation
+callbacks subset whole compositions and use the supplied neighbourhoods.
+For REML, the fourth-order trace accumulates all predictor-pair contributions
+when predictors share coefficients. Both bam paths reject general families.

@@ -1,4 +1,4 @@
-library(inlaws)
+library("inlaws")
 
 near <- function(a, b, tol = 1e-6) {
   stopifnot(isTRUE(all.equal(as.numeric(a), as.numeric(b), tolerance = tol)))

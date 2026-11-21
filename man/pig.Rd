@@ -29,10 +29,9 @@ is mu and its variance is \code{mu + theta * mu^2}. There is one mean predictor;
 dispersion is global. \code{getTheta(TRUE)} returns theta and \code{getTheta()}
 returns log(theta).
 
-Supported smoothing methods are REML, ML, and NCV for \code{gam()}; REML, ML,
-and fREML for ordinary \code{bam()}; and fREML and NCV for discrete \code{bam()}.
-Discrete NCV requires mgcv >= 1.9-4 and uses a working-model criterion
-which need not agree with \code{gam()} NCV. \code{gamm()} is not supported.
+\code{gam()} uses REML, ML, NCV, or QNCV. Ordinary \code{bam()} uses REML, ML, or
+fREML, and discrete \code{bam()} uses fREML or NCV. Discrete NCV uses a
+working-model criterion that can differ from \code{gam()} NCV.
 The fitting callbacks use variance-based positive working information
 when mgcv requests expected information; likelihood derivatives are exact.
 Dispersion can approach zero for Poisson or

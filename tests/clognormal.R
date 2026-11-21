@@ -1,4 +1,4 @@
-library(inlaws)
+library("inlaws")
 near <- function(a, b, tol = 1e-6) {
   stopifnot(isTRUE(all.equal(as.numeric(a), as.numeric(b), tolerance = tol)))
 }
@@ -43,7 +43,9 @@ g <- clognormal(); g$putTheta(log(2)); near(f$getTheta(TRUE),.7)
 f2 <- unserialize(serialize(f,NULL)); near(f2$getTheta(TRUE),.7)
 # Validation and row-safe censoring attributes.
 for (bad in list(0,-1,Inf,cbind(1,0),cbind(1,.5),matrix(1,2,3))) fails(f$prepare.response(bad))
-for (bad in list(0,NA,Inf,c(1,2))) fails(clognormal(theta=bad))
+for (bad in list(NA,Inf,c(1,2))) fails(clognormal(theta=bad))
+stopifnot(clognormal(0)$n.theta == 1L)
+near(clognormal(0)$getTheta(TRUE), 1)
 fails(clognormal(link="identity"))
 near(attr(f$subsety(z,c(4,2)),"censor"),y[c(4,2),2])
 stopifnot(is.matrix(f$subsety(y,1)))
@@ -60,6 +62,9 @@ raw <- rlnorm(n, .2+sin(6*dat$x)+dat$off, .5)
 dat$y <- raw
 # Uncensored fits agree with the usual Gaussian log-response fit.
 b <- gam(y~s(x,k=7)+offset(off),data=dat,family=clognormal(),method="REML")
+b0 <- gam(y~s(x,k=7)+offset(off),data=dat,family=clognormal(0),method="REML")
+near(b0$family$getTheta(TRUE), b$family$getTheta(TRUE))
+near(coef(b0), coef(b))
 ref <- gam(log(y)~s(x,k=7)+offset(off),data=dat,family=gaussian(),method="REML")
 near(b$family$getTheta(TRUE),sqrt(ref$sig2),1e-4)
 near(predict(b),predict(ref)+ref$sig2/2,1e-4)
@@ -135,3 +140,32 @@ mt <- f$Dd(yt,rep(1,3),th-h,rep(1,3),2)
 near(dt$Dmu2th2,(pt$Dmu2th-mt$Dmu2th)/(2*h),1e-6)
 near(f$aic(yt[1,,drop=FALSE],1,wt=1),
      -2*plnorm(yt[1,1],-.7^2/2,.7,lower.tail=FALSE,log.p=TRUE))
+
+# Keep the fixed likelihood scale and the offset-only null model.
+no_intercept <- gam(y ~ 0 + x + offset(off), data = dat,
+                    family = clognormal(.5), method = "REML")
+near(no_intercept$null.deviance,
+     sum(no_intercept$family$dev.resids(dat$y, exp(dat$off), 1)))
+err <- tryCatch(gam(y ~ s(x, k = 6), data = dat, family = clognormal(),
+                    method = "REML", scale = 2), error = identity)
+stopifnot(inherits(err, "error"),
+          grepl("likelihood scale is fixed", conditionMessage(err), fixed = TRUE))
+
+for (engine in c("gam", "bam", "discrete")) {
+  template <- clognormal()
+  fit_family <- function(data) {
+    if (engine == "gam")
+      return(gam(y ~ s(x, k = 6), data = data, family = template, method = "REML"))
+    bam(y ~ s(x, k = 6), data = data, family = template, discrete = engine == "discrete")
+  }
+  exact <- dat; exact$y <- raw
+  first_fit <- fit_family(exact)
+  sigma <- first_fit$family$getTheta(TRUE)
+  first_cdf <- first_fit$family$cdf(1, fitted(first_fit))
+  exact$y <- raw^2
+  second_fit <- fit_family(exact)
+  stopifnot(abs(second_fit$family$getTheta(TRUE) - sigma) > .1)
+  near(first_fit$family$getTheta(TRUE), sigma)
+  near(first_fit$family$cdf(1, fitted(first_fit)), first_cdf)
+  near(template$getTheta(TRUE), 1)
+}

@@ -58,7 +58,9 @@ fit$family$qf(0.95, fitted(fit))
 
 The package contains families and their distribution callbacks, without general
 simulation or quantile wrappers for fitted models. Callback parameter scales and
-matrix-response support differ by family; see its documentation. Mathematical
+matrix-response support differ by family. Raw CDF callbacks use `logp` for
+log probabilities. Check each family help page for supported tail options and
+whether its inputs are response- or link-scale parameters. Mathematical
 notes are under `inst/maths`, and optional external comparisons under
 `inst/validation`. The existing mgcvUtils `clognorm()` and smooth constructors
 are outside this package's scope.

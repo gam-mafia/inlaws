@@ -25,9 +25,9 @@ dispersion formula second. Both support offsets. The mean is
 \code{mu = exp(eta1)}, dispersion is \code{theta = exp(eta2)}, and the variance is
 \code{mu + theta * mu^2}, using the same parameterization as \code{\link[=pig]{pig()}}.
 
-REML supports outer Newton and BFGS optimization; NCV uses BFGS, with
+REML supports outer Newton and BFGS optimization. NCV and QNCV use BFGS, with
 default leave-one-out or neighbourhoods supplied through \code{nei}.
-ML, QNCV, EFS, \code{bam()} and \code{gamm()} are outside the supported scope.
+ML, EFS, \code{bam()} and \code{gamm()} are outside the supported scope.
 Separate coefficients are required for the predictors: the same covariates
 can appear in both formulae, but shared coefficients are not supported.
 

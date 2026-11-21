@@ -15,7 +15,7 @@
 #' Responses are finite positive numeric vectors, without censoring.
 #' Weights are likelihood replication weights, including zero weights.
 #'
-#' Supports `gam()` REML and NCV, including grouped neighbourhoods and
+#' Supports `gam()` REML, NCV, and QNCV, including grouped neighbourhoods and
 #' offsets in both predictors. `bam()`, `gamm()` and ML selection are not
 #' supported. Separate coefficients are required for the two predictors;
 #' shared coefficients via additional formulae are not supported.
@@ -67,7 +67,7 @@ log_logisticls <- function(link = list("log", "logit")) {
   })
   family <- structure(list(family = "log_logisticls", link = unlist(link), nlp = 2L,
     linfo = linfo, tri = mgcv::trind.generator(2), ll = .llogls_ll,
-    ncv = .llogls_ncv, initialize = initialize, init = .llogls_init,
+    ncv = .inlaws_gamlss_ncv, initialize = initialize, init = .llogls_init,
     prepare.response = .llog_response,
     preinitialize = function(G) list(y = .llog_response(G$y), offxset = G$offset),
     postproc = postproc, residuals = .llogls_residuals,
@@ -98,7 +98,7 @@ log_logisticls <- function(link = list("log", "logit")) {
         eta[, k] <- eta[, k] + offset[[k]]
     }
   }
-  # Direct eta already includes offsets in gamlss.ncv; do not add them twice.
+  # Held-out predictors already include offsets.
   wt <- rep_len(if (is.null(wt)) 1 else wt, nrow(eta))
   eta[wt == 0, ] <- 0
   valid <- is.finite(eta[, 1]) & is.finite(eta[, 2]) &
@@ -125,7 +125,7 @@ log_logisticls <- function(link = list("log", "logit")) {
     l4 <- if (order >= 4) packed[[4]] else 0
     # NCV supplies eta for row subsets whose X may lack lpi. It only needs
     # observation derivatives, not coefficient-space contractions there.
-    if (!is.null(jj)) ret <- mgcv::gamlss.gH(X, jj, packed[[1]], packed[[2]], family$tri$i2,
+    if (!is.null(jj)) ret <- .inlaws_gamlss_gh(X, jj, packed[[1]], packed[[2]], family$tri$i2,
       l3 = l3, i3 = family$tri$i3, l4 = l4, i4 = family$tri$i4,
       d1b = d1b, d2b = d2b, deriv = deriv - 1L, fh = fh, D = D,
       sandwich = sandwich)
@@ -135,38 +135,6 @@ log_logisticls <- function(link = list("log", "logit")) {
     }
   }
   ret$l0 <- ell[, 1]; ret$l <- sum(ret$l0)
-  ret
-}
-
-.llogls_ncv <- function(X, y, wt, nei, beta, family, llf, H = NULL,
-                            Hi = NULL, R = NULL, offset = NULL, dH = NULL,
-                            db = NULL, deriv = FALSE, nt = 1) {
-  # Pass row indices to preserve correct offset selection for NCV subsets.
-  response <- .llog_response(y)
-  likelihood <- family$ll
-  fit_offset <- lapply(1:2, function(k) {
-    if (length(offset) >= k && !is.null(offset[[k]])) rep_len(offset[[k]], length(response)) else
-      numeric(length(response))
-  })
-  family$ll <- function(y, X, coef, wt, family, offset = NULL, deriv = 0,
-                        d1b = 0, ..., eta = NULL) {
-    yy <- response[y]
-    off <- lapply(fit_offset, function(x) x[y])
-    if (!is.null(eta)) for (k in 1:2) eta[, k] <- eta[, k] + off[[k]]
-    likelihood(yy, X, coef, wt, family, offset = off, deriv = deriv,
-               d1b = d1b, ..., eta = eta)
-  }
-  # Keep the helper's predictors offset-free and add offsets only in the
-  # callback. Its gamma adjustment evaluates the full-data eta without
-  # adding offsets, whereas its held-out eta normally includes them.
-  ret <- utils::getFromNamespace("gamlss.ncv", "mgcv")(
-    X, seq_along(response), wt, nei, beta, family, llf, H = H, Hi = Hi,
-    R = R, offset = NULL, dH = dH, db = db, deriv = deriv, nt = nt)
-  eta <- attr(ret$NCV, "eta.cv")
-  if (!is.null(eta)) {
-    for (k in 1:2) eta[, k] <- eta[, k] + fit_offset[[k]][nei$d]
-    attr(ret$NCV, "eta.cv") <- eta
-  }
   ret
 }
 

@@ -10,107 +10,84 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
-This is a snapshot of **inlaws** 0.0.0.9000, based on the family
-implementations, help pages, and regression tests in `tests/`, reviewed with
-**mgcv** 1.9-4. The package requires mgcv >= 1.9-3; discrete `bam()` NCV
-requires mgcv >= 1.9-4.
+The package requires **mgcv** 1.9-3 or later. The table reflects regression tests
+and targeted fitting checks on mgcv 1.9-3 through 1.9-5. **Tested** denotes a
+route exercised by the package regression suite. **Checked** denotes a route
+exercised on a smooth-model fixture. A dash denotes an unavailable route.
+The checks use free smoothing parameters and verify the criterion that actually ran.
 
-**Yes** denotes an implemented route covered by package regression tests;
-**No** denotes an unsupported route; **?** denotes a route that has not been
-validated, rather than a known failure. Method columns refer to smoothing
-parameter selection, not simply maximization of an unpenalized likelihood.
+| Family | Class | `gam()` REML / ML | `gam()` NCV / QNCV | Ordinary `bam()` REML / ML / fREML | Discrete `bam()` fREML / NCV |
+|:--|:--|:--|:--|:--|:--|
+| `betabinomial()` | General | Tested / — | Tested / Tested | — / — / — | — / — |
+| `cgamma()` | Extended | Tested / Tested | Checked / Checked | Checked / Checked / Tested | Tested / Checked |
+| `cgammals()` | General | Tested / — | Tested / Tested | — / — / — | — / — |
+| `clognormal()` | Extended | Tested / Tested | Tested / Checked | Checked / Checked / Tested | Tested / Tested |
+| `clognormalls()` | General | Tested / — | Tested / Tested | — / — / — | — / — |
+| `cmp()` | Extended | Tested / Checked | Checked / Checked | Checked / Checked / Tested | Tested / Checked |
+| `cmpls()` | General | Tested / — | Tested / Tested | — / — / — | — / — |
+| `cumulative_link()` | Extended | Tested / Tested | Tested / Checked | Tested / Tested / Tested | Tested / Tested |
+| `dirichlet()` | General | Tested / — | Tested / Tested | — / — / — | — / — |
+| `dirmult()` | General | Tested (EFS) / — | — / — | — / — / — | — / — |
+| `gpd()` | General | Tested / — | Tested¹ / Tested | — / — / — | — / — |
+| `gpoisson()` | Extended | Tested / Tested | Tested² / Tested² | Checked / Checked / Tested | Tested / Checked |
+| `log_logistic()` | Extended | Tested / Tested | Tested / Checked | Tested / Tested / Tested | Tested / Tested |
+| `log_logisticls()` | General | Tested / — | Tested / Tested | — / — / — | — / — |
+| `nbls()` | General | Tested / — | Tested / Tested | — / — / — | — / — |
+| `ordbeta()` | Extended | Tested / Tested | Tested / Tested | Tested / Tested / Tested | Tested / Tested |
+| `pig()` | Extended | Tested / Tested | Tested / Checked | Tested / Tested / Tested | Tested / Tested |
+| `pigls()` | General | Tested / — | Tested / Tested | — / — / — | — / — |
+| `zanb()` | General | Tested / — | Tested / Tested | — / — / — | — / — |
+| `zinb()` | General | Tested / — | Tested / Tested | — / — / — | — / — |
 
-| Family | Class | `gam()` REML | `gam()` ML | `gam()` NCV | `bam()` REML / ML | `bam()` fREML | Discrete `bam()` fREML / NCV |
-|:--|:--|:--:|:--:|:--:|:--:|:--:|:--:|
-| `betabinomial()` | General | Yes | No | Yes | No / No | No | No / No |
-| `cgamma()` | Extended | Yes | Yes | ? | ? / ? | Yes | Yes / ? |
-| `cgammals()` | General | Yes | No | Yes | No / No | No | No / No |
-| `clognormal()` | Extended | Yes | Yes | Yes | ? / ? | Yes | Yes / Yes |
-| `clognormalls()` | General | Yes | No | Yes | No / No | No | No / No |
-| `cmp()` | Extended | Yes | ? | ? | ? / ? | ? | ? / ? |
-| `cmpls()` | General | Yes | No | Yes | No / No | No | No / No |
-| `dirichlet()` | General | Yes | No | No | No / No | No | No / No |
-| `dirmult()` | General | Yes | No | No | No / No | No | No / No |
-| `gpoisson()` | Extended | Yes | Yes | ? | ? / ? | ? | ? / ? |
-| `gpd()` | General | Yes | No | No | No / No | No | No / No |
-| `pig()` | Extended | Yes | Yes | Yes | Yes / Yes | Yes | Yes / Yes |
-| `pigls()` | General | Yes | No | Yes | No / No | No | No / No |
-| `log_logistic()` | Extended | Yes | Yes | Yes | Yes / Yes | Yes | Yes / Yes |
-| `log_logisticls()` | General | Yes | No | Yes | No / No | No | No / No |
-| `nbls()` | General | Yes | No | No | No / No | No | No / No |
-| `cumulative_link()` | Extended | Yes | Yes | Yes | Yes / Yes | Yes | Yes / Yes |
-| `ordbeta()` | Extended | Yes | Yes | No | No / No | No | No / No |
-| `zanb()` | General | Yes | No | Yes | No / No | No | No / No |
-| `zinb()` | General | Yes | No | Yes | No / No | No | No / No |
+¹ An NCV deletion for `gpd()` can move a held-out excess outside the fitted
+support. Such a trial has infinite score. QNCV uses a local quadratic
+approximation around the full-data predictors.
 
-The ordinary `bam()` columns mean `discrete = FALSE`. The final column means
-`discrete = TRUE`: discretization is available with fREML and NCV, not ML or
-ordinary REML. `gam()` does not offer fREML. Support for an extended family
-does not by itself establish that every fitting route works.
+² Estimated dispersion can make the outer NCV or QNCV optimization sensitive
+to the dataset for `gpoisson()`. Check `fit$outer.info$conv` as well as
+`fit$converged` and any warnings.
 
-## Qualifications
+## Engine and criterion details
 
-- **General families:** mgcv does not support these in `bam()`. In mgcv 1.9-4,
-  `gam()` changes an ML request to REML for these families. It also resets NCV
-  to REML (with a warning) when the family lacks an NCV callback, as for
-  `gpd()`. A returned model therefore does not prove the requested method ran;
-  inspect `fit$method`.
-- **Optimizers:** `dirmult()` uses extended Fellner--Schall (`optimizer =
-  "efs"`), selected automatically; Newton/BFGS smoothing optimization is not
-  implemented. `betabinomial()` has tested REML Newton and BFGS routes;
-  `nbls()`, `zinb()`, and `zanb()` also have tested EFS routes. NCV for
-  `zinb()` and `zanb()` uses BFGS, not EFS.
-- **NCV and QNCV:** NCV is approximate neighbourhood cross-validation.
-  `betabinomial()` supports row-level neighbourhoods, not automatic
-  leave-one-trial-out validation of aggregated binomial counts, and explicitly
-  rejects QNCV. `zinb()` and `zanb()` support both NCV and QNCV. QNCV has not
-  been validated for the other NCV-capable families listed here. Discrete
-  `bam()` NCV uses the working linear model, so its optimum need not match
-  `gam()` NCV.
-- **Censored location-scale families:** `cgammals()` and `clognormalls()`
-  use two formulae and support REML and NCV, including grouped neighbourhoods
-  and offsets in both predictors. `cgammals()` returns mean and dispersion
-  (`mu`, `phi`), with variance `phi * mu^2`; `clognormalls()` returns mean and
-  log-response standard deviation (`mu`, `sigma`). Both use ordinary log links
-  and require separate coefficients for the two predictors. A constant second
-  predictor need not reproduce REML estimates from `cgamma()` or `clognormal()`.
-- **ML edge cases:** in mgcv 1.9-4, entirely unpenalized `gam(method = "ML")`
-  models can hit a native solver limitation with `gpoisson()` or the cauchit link
-  of `cumulative_link()`. Smooth-model ML is supported; see the family help pages
-  for alternatives.
-- **Poisson inverse Gaussian predictors:** `pigls()` models mean and dispersion
-  with two log-linked predictors and returns `mu`, `theta`, with variance
-  `mu + theta * mu^2`. It supports separate coefficient blocks and offsets in
-  both predictors. REML uses outer Newton or BFGS and NCV uses BFGS; EFS and
-  QNCV are outside its supported scope. Constant dispersion via `~ 1` need
-  not reproduce REML estimates from `pig()`.
-- **CMP predictors:** `cmpls()` models the exact mean and dispersion with
-  separate log-link predictors in `gam()`, with REML and NCV support.
-  Use two formulae; `~ 1` estimates constant dispersion. See `?cmpls` for
-  numerical limits and supported prediction and distribution callbacks.
-- **Log-logistic predictors:** `log_logistic()` models arithmetic mean with a
-  log link and estimates or fixes a global logistic scale for `log(Y)`.
-  `log_logisticls()` uses log/logit links for mean and varying scale, with
-  two formulae and separate coefficients. Both constrain scale to `(0, 1)`;
-  variance is infinite at scale >= 0.5, where Pearson residuals are `NA`.
-  Tests are in `tests/log-logistic-models.R` and `tests/log-logisticls.R`.
-- **Scope:** `cmp()` is a pure-R reference implementation whose large-data
-  performance is unvalidated. No family here has a supported `gamm()` route.
-  GCV/UBRE and other unlisted smoothing criteria are outside this summary.
+- **General families.** Use `gam()` for models with several predictors.
+  mgcv changes an ML request for a general family to REML. It routes GCV,
+  GACV, Pearson likelihood criteria, and fREML requests for these extended
+  and general families to REML in `gam()`. Check `fit$method`.
+- **Ordinary BAM.** With `discrete = FALSE`, the extended families in the
+  table also exercised `GCV.Cp`, `GACV.Cp`, `P-REML`, and `P-ML` on
+  smooth-model fixtures. With fixed unit scale both `GCV.Cp` and
+  `GACV.Cp` use UBRE, and the working-model Pearson likelihood methods
+  reduce to REML and ML. Use `scale = 1` with these families. A default-scale
+  request can cause mgcv to label UBRE as GCV and to count an extra
+  scale parameter in `logLik()`.
+- **Discrete BAM.** mgcv supports fREML and NCV here, including NCV on
+  1.9-3. An NCV request to ordinary `bam()` enables discretization.
+  A discrete request with another criterion disables discretization.
+  Check `fit$dinfo` as well as `fit$method`. Discrete NCV uses the
+  working linear model, so its estimates can differ from `gam()` NCV.
+  With `cumulative_link()` and a formula offset, supply only the
+  predictors and offset variables to `predict()` or use
+  `predict(..., discrete = FALSE)` if mgcv's discrete prediction rejects
+  `newdata` containing the response.
+- **Optimizers.** `dirmult()` uses extended Fellner--Schall (EFS), which
+  mgcv selects automatically for this family. Its first and second
+  derivatives support EFS. NCV and outer REML optimization would require
+  higher derivatives. NCV and QNCV for general families use outer BFGS.
+  Entirely unpenalized ML fits with `gpoisson()` or cauchit
+  `cumulative_link()` can hit a native solver limitation in mgcv.
+- **Neighbourhoods.** `betabinomial()` deletes whole rows, with each row
+  representing a binomial group. Its trial totals follow the response rows
+  in deletion and prediction subsets. The tests for general families include
+  offsets in both predictors, repeated prediction indices, and a nonunit
+  `gamma`. Use `nei` to specify neighbourhoods for dependent observations.
+- **Numerical limits.** `cmp()` and `cmpls()` are pure-R reference
+  implementations with adaptive summation and numerical limits on the
+  supported parameter range. The BAM checks for `cmp()` establish
+  correctness on small fixtures. Censoring and extreme-value families also
+  have parameter-dependent numerical or support limits. See each family
+  help page for its response encoding, links, and prediction scale.
 
-For a conservative starting point, use `gam(..., method = "REML")` with the
-family's documented formula structure. For large-data fitting, the tested
-choices are `cgamma()`, `clognormal()`, `cumulative_link()`, and `pig()` with
-`bam(..., method = "fREML")`, with or without discretization. Consult each
-family's help for response encoding, links, parameter constraints, and
-prediction semantics; a **Yes** here is not a guarantee of convergence for
-every dataset.
-
-The evidence for each row is in the correspondingly named test file (for
-example, `tests/cgamma.R`); ordinal tests are in `tests/cumulative-link.R`,
-zero-inflated and hurdle tests in `tests/zinb-models.R` and `tests/zinb-ncv.R`,
-Poisson inverse Gaussian checks in `tests/pig-models.R`, `tests/pigls-models.R`
-and `tests/pigls-ncv.R`,
-and additional NCV checks in `tests/clognormal-ncv.R` and
-`tests/betabinomial-smoothing.R`. Update this table when adding fitting routes
-or extending their validation.
+The family-specific tests live in `tests/`. The joint
+`tests/gamlss-ncv.R` checks held-out derivatives for several general
+families. The individual family tests cover fitted state, likelihood
+reporting, derivatives, and distribution callbacks.

@@ -52,7 +52,8 @@ Deviance residuals are not
 defined here: an unrestricted saturated Dirichlet likelihood is unbounded.
 Deviance and null deviance are \code{NA}, so no deviance explained is reported.
 
-This family supports REML in \code{gam()}, not \code{bam()}, \code{gamm()}, or NCV.
+This family supports REML, NCV, and QNCV in \code{gam()}.
+\code{bam()} and \code{gamm()} are unavailable.
 Fourth-order derivative storage grows as \code{choose(K + 4, 4)} per observation
 for the highest order alone, so modest component counts are recommended.
 Changing the reference by reordering columns can change penalized fits.
@@ -60,7 +61,7 @@ Changing the reference by reordering columns can change penalized fits.
 The mean/concentration parameterization agrees with \code{brms::dirichlet()}
 using its default logit mean link, log concentration link, and first-column
 reference. The fitting criteria and uncertainty calculations differ:
-this family uses penalized likelihood and REML, not posterior sampling.
+this family uses penalized likelihood with smoothing parameter selection.
 Use explicit namespaces when both packages are attached.
 The family's \code{rd(mu, wt, scale)} callback takes link-scale predictors and
 returns a response matrix. The compatibility arguments \code{wt} and \code{scale}

@@ -3,14 +3,14 @@
 #' @description
 #' `r lifecycle::badge("experimental")`
 #'
-#' A GP-1 extended family for [mgcv::gam()], with a log link for the mean
-#' and one fixed or estimated global dispersion parameter.
+#' A GP-1 extended family for [mgcv::gam()] and [mgcv::bam()], with a log link
+#' for the mean and one fixed or estimated global dispersion parameter.
 #'
 #' @param theta The variance-to-mean ratio phi. `NULL` or zero estimates phi
 #'   starting at two; a positive value at least one fixes phi; a negative
 #'   value less than minus one estimates phi starting at `abs(theta)`.
 #' @param link Only `"log"` is supported.
-#' @return An `extended.family` object for `gam()`, including `rd`, `cdf`
+#' @return An `extended.family` object, including `rd`, `cdf`
 #'   and `qf` distribution callbacks.
 #' @details
 #' With `a = mu / sqrt(phi)` and `b = 1 - 1 / sqrt(phi)`, the probability
@@ -19,13 +19,16 @@
 #' estimated: phi > 1. Fixed `theta = 1` gives the exact Poisson family.
 #' Underdispersion and a dispersion linear predictor are not supported.
 #'
-#' Use `method = "REML"` or `"ML"`. The additional likelihood scale is
-#' fixed at one. `getTheta(TRUE)` returns phi; `getTheta()` returns
+#' `gam()` supports `method = "REML"`, `"ML"`, `"NCV"` and `"QNCV"`.
+#' `bam()` supports its extended-family selectors, including `"fREML"` and,
+#' with `discrete = TRUE`, `"fREML"` and `"NCV"`. Supply `scale = 1` to
+#' `bam()` so that `logLik()` treats the likelihood scale as fixed.
+#' `getTheta(TRUE)` returns phi. `getTheta()` returns
 #' `log(phi - 1)`, or `numeric(0)` for fixed Poisson (no nuisance parameter).
 #' Estimation approaches
 #' the Poisson boundary without automatically switching models; almost
 #' Poisson or underdispersed data can give weak dispersion identification.
-#' `bam()` and other smoothing-selection methods have not been validated.
+#' NCV and QNCV can have convergence difficulties when estimating dispersion.
 #' In mgcv 1.9-4, ML can fail with a LAPACK error for entirely unpenalized
 #' models when individual observations have negative log-link curvature.
 #' This is an mgcv zero-column SVD limitation; use REML for such models.
@@ -35,9 +38,9 @@
 #' multiply likelihood contributions; they do not alter the distribution
 #' used for simulation or quantiles. Offsets have their usual log-mean
 #' interpretation. Deviance uses the saturated mean at fixed phi, which
-#' generally differs from y. The fitting callbacks use observed information
-#' as an estimate of expected information (exact expected information for
-#' fixed Poisson).
+#' generally differs from y. The fitting callbacks use the positive expected
+#' information of the latent immigrant count as working information. It is
+#' exact at the Poisson boundary.
 #'
 #' Distribution callbacks condition on fitted parameters. The CDF is
 #' right-continuous and accepts `logp = TRUE`. Quantiles at probabilities
@@ -110,14 +113,15 @@ gpoisson <- function(theta = NULL, link = "log") {
       ans$Dth[active] <- ans$Dth[active] + 2 * wa * sat[, 2]
       if (level > 1) ans$Dth2[active] <- ans$Dth2[active] + 2 * wa * sat[, 3]
     }
-    ans$EDmu2 <- ans$Dmu2
+    # The latent Poisson immigrant count has mean c*mu. Its information is
+    # positive and bounds the observed-data Fisher information from above.
+    # Ordinary bam uses this working curvature to form its IRLS response.
+    p <- .gpoisson_parameters(theta)
+    info <- 2 * wa * p$c / ma
+    ans$EDmu2[active] <- info
     if (level > 0) {
-      ans$EDmu3 <- ans$Dmu3
-      ans$EDmu2th <- ans$Dmu2th
-    }
-    if (theta == -Inf) {
-      ans$EDmu2[active] <- 2 * wa / ma
-      if (level > 0) ans$EDmu3[active] <- -4 * wa / ma^2
+      ans$EDmu3[active] <- -2 * info / ma
+      ans$EDmu2th[active] <- -p$h * info / 2
     }
     ans
   }
@@ -154,9 +158,11 @@ gpoisson <- function(theta = NULL, link = "log") {
     mustart <- y + (y == 0) / 6
   })
   preinitialize <- function(y, family) {
-    # Rebuild closures for each fit; never retain or modify the template.
-    fresh <- .gpoisson_family(initial, fixed)
-    list(family = mgcv::fix.family.link(fresh))
+    # Retain mgcv's NCV options when cloning for gam. The bam setup has
+    # already cloned the family shared by its fitter and AIC calculation.
+    if (!isTRUE(family$.gpoisson_isolated))
+      family <- unserialize(serialize(family, NULL))
+    list(family = family)
   }
   postproc <- function(family, y, prior.weights, fitted, linear.predictors, offset, intercept) {
     obj <- function(b) sum(family$dev.resids(y, exp(b + offset), prior.weights))
@@ -171,7 +177,8 @@ gpoisson <- function(theta = NULL, link = "log") {
       }
       opt$objective
     }
-    list(null.deviance = null)
+    list(null.deviance = null,
+         deviance = sum(family$dev.resids(y, fitted, prior.weights)))
   }
   lk <- stats::make.link("log")
   family <- structure(list(family = "Generalized Poisson", link = "log",
@@ -181,6 +188,14 @@ gpoisson <- function(theta = NULL, link = "log") {
     initialize = initialize, preinitialize = preinitialize, postproc = postproc,
     variance = variance, n.theta = as.integer(!fixed), ini.theta = if (poisson) numeric(0) else initial,
     getTheta = getTheta, putTheta = putTheta, scale = 1, rd = rd, cdf = cdf, qf = qf),
-    class = c("extended.family", "family"))
+    class = c("gpoisson.family", "extended.family", "family"))
   .inlaws_diagnostic_family(family, "gpoisson")
+}
+
+#' @export
+#' @importFrom mgcv fix.family.link
+fix.family.link.gpoisson.family <- function(fam) {
+  fam <- unserialize(serialize(fam, NULL))
+  fam$.gpoisson_isolated <- TRUE
+  NextMethod()
 }
