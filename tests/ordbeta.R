@@ -173,6 +173,8 @@ for (mode in c("full", "lower", "upper", "beta")) {
 }
 f <- make_family("upper",c(log(10),1))
 stopifnot(is.finite(f$cdf(1e-100,.8,logp=TRUE)))
+stopifnot(is.na(f$cdf(.5, NA_real_)), is.na(f$qf(.5, c(NA_real_, .4))[1L]),
+          is.na(f$rd(c(NA_real_, .4))[1L]))
 
 # Tight gaps and far-tail cutpoints exercise stable probability arithmetic.
 for (cuts in list(c(-20,20),c(5,5.0001),c(-30,-29))) {
@@ -260,6 +262,8 @@ expect_error(ordbeta(start=list(phi=-1)),"positive")
 expect_error(ordbeta(start=list(cutpoints=c(1,0))),"ordered")
 expect_error(ordbeta(start=list(other=1)),"named list")
 expect_error(gam(y~x,data=d,family=ordbeta(start=list(cutpoints=c(-Inf,1))),method="ML"),"active starting")
+expect_error(gam(y ~ s(x, k = 6), data = d, family = ordbeta(), scale = 2,
+                 method = "REML"), "likelihood scale is fixed")
 bad <- d; bad$y[1] <- -1
 expect_error(gam(y~x,data=bad,family=ordbeta(),method="ML"),"responses")
 bad$y[1] <- Inf
@@ -279,6 +283,53 @@ for (method in c("ML","REML")) {
   sm <- gam(y~s(x,k=7),data=smooth_data,family=ordbeta(),method=method)
   stopifnot(sm$converged,sqrt(mean((predict(sm)-truth)^2))<.3)
 }
+
+# Weighted support reduction survives ordinary and discrete bam initialization.
+# Both bam and gam must report likelihood and predictions at the fitted theta.
+for (engine in c("gam", "bam", "discrete")) {
+  methods <- switch(engine, gam = c("NCV", "QNCV"), bam = c("REML", "ML", "fREML"),
+                   discrete = c("fREML", "NCV"))
+  for (method in methods) {
+    cv <- smooth_data
+    cv$w <- if (method == "fREML") as.numeric(cv$y < 1) else 1
+    args <- list(formula = y ~ s(x, k = 6), family = template, data = cv,
+                 weights = cv$w, method = method, scale = 1)
+    if (engine != "gam") args$discrete <- engine == "discrete"
+    fm <- suppressMessages(do.call(get(if (engine == "gam") "gam" else "bam"), args))
+    stopifnot(fm$converged, identical(fm$method, method),
+              identical(fm$family$mode, if (method == "fREML") "lower" else "full"))
+    near(as.numeric(logLik(fm)), -sum(fm$family$dev.resids(fm$y, fitted(fm), fm$prior.weights)) / 2)
+    pdata <- cv[1:6, "x", drop = FALSE]
+    actual <- predict(fm, pdata, type = "response", se.fit = TRUE)
+    reference <- predict_ordbeta(fm, pdata, se.fit = TRUE)
+    link <- predict(fm, pdata, type = "link", se.fit = TRUE)
+    pars <- fm$family$getTheta(TRUE)
+    stopifnot(identical(dim(actual$fit), c(nrow(pdata), 5L)),
+              identical(dim(actual$se.fit), dim(actual$fit)))
+    near(actual$fit, response_values(link$fit, pars))
+    step <- 1e-5
+    slope <- (response_values(link$fit + step, pars) - response_values(link$fit - step, pars)) / (2 * step)
+    near(actual$se.fit, abs(slope) * as.numeric(link$se.fit))
+    near(actual$fit[, 5L], reference$fit)
+    near(actual$se.fit[, 5L], reference$se.fit)
+    near(template$getTheta(), c(log(10), -1, log(2)))
+  }
+}
+
+# For this mixture of endpoint masses and a varying interior mean, the
+# ordinary bam iteration with unmodified Fisher steps can oscillate.
+set.seed(72393)
+oscillating <- data.frame(x = runif(100))
+prob <- plogis(-.8 + 1.3 * sin(2 * pi * oscillating$x))
+oscillating$y <- ifelse(runif(100) < .2, 0,
+                        ifelse(runif(100) < .3, 1, rbeta(100, 4 * prob, 4 * (1 - prob))))
+stable <- withCallingHandlers(
+  bam(y ~ s(x, k = 5), family = ordbeta(), data = oscillating, method = "fREML", scale = 1),
+  warning = function(w) stop(conditionMessage(w), call. = FALSE)
+)
+reference <- gam(y ~ s(x, k = 5), family = ordbeta(), data = oscillating, method = "REML")
+near(as.numeric(logLik(stable)), as.numeric(logLik(reference)), .002)
+
 uc <- predict_ordbeta(sm,se.fit=TRUE,unconditional=TRUE)
 uc_ref <- predict(sm,type="response",se.fit=TRUE,unconditional=TRUE)
 near(uc$fit,uc_ref$fit[,5]); near(uc$se.fit,uc_ref$se.fit[,5])

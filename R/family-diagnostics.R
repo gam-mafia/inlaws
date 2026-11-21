@@ -202,7 +202,7 @@ NULL
           stop("Dirichlet-multinomial diagnostics require the response count matrix", call. = FALSE)
         total <- rowSums(y)
         out$mean <- pr$mu * total
-        out$variance <- pr$mu * (1 - pr$mu) * total * (total + pr$phi) / (1 + pr$phi)
+        out$variance <- pr$mu * (1 - pr$mu) * total * (1 + (total - 1) / (1 + pr$phi))
         margins <- .inlaws_bb_distribution(as.vector(pr$mu), rep(pr$phi, NCOL(pr$mu)), rep(total, NCOL(pr$mu)))
         out$cdf <- function(q, log_p = FALSE, lower_tail = TRUE)
           matrix(margins$cdf(q, log_p, lower_tail), NROW(mu))
@@ -247,9 +247,8 @@ NULL
   n <- length(p)
   log_mass <- function(k, i) {
     if (p[i] == 0 || p[i] == 1) return(ifelse(k == trials[i] * p[i], 0, -Inf))
-    lchoose(trials[i], k) +
-      lbeta(k + p[i] * phi[i], trials[i] - k + (1 - p[i]) * phi[i]) -
-      lbeta(p[i] * phi[i], (1 - p[i]) * phi[i])
+    eta <- cbind(rep.int(stats::qlogis(p[i]), length(k)), rep.int(log(phi[i]), length(k)))
+    .bb_derivatives(k, rep.int(trials[i], length(k)), eta, order = 0L)$l0
   }
   phi <- rep_len(phi, n)
   if (length(trials) != n || anyNA(p) || anyNA(phi) || anyNA(trials) ||
@@ -283,7 +282,7 @@ NULL
       k[which(cs >= prob)[1L]]
     }, numeric(1))
   }
-  list(mean = trials * p, variance = trials * p * (1 - p) * (trials + phi) / (1 + phi),
+  list(mean = trials * p, variance = trials * p * (1 - p) * (1 + (trials - 1) / (1 + phi)),
     cdf = cdf, cdf_left = function(q, log_p = FALSE, lower_tail = TRUE)
       cdf(ceiling(q) - 1, log_p, lower_tail), qf = qf,
     rd = function() stats::rbinom(n, trials, stats::rbeta(n, p * phi, (1 - p) * phi)))

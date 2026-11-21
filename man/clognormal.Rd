@@ -7,9 +7,9 @@
 clognormal(theta = NULL, link = "log", observe = NULL)
 }
 \arguments{
-\item{theta}{Log-response standard deviation: \code{NULL} estimates it starting
-at one; a positive value fixes it; a negative value specifies the negative
-of its starting value for estimation. Zero is not allowed.}
+\item{theta}{Log-response standard deviation: \code{NULL} or zero estimates it
+starting at one; a positive value fixes it; a negative value requests
+estimation starting at \code{abs(theta)}.}
 
 \item{link}{Mean link; currently only \code{"log"} is supported.}
 
@@ -41,6 +41,7 @@ Prior weights are non-negative case (likelihood) weights, not log-scale
 precision weights as in \code{mgcv::cnorm()}. The single global \code{sigma} is
 estimated alongside smoothing parameters; it has no separate predictor.
 \code{family$getTheta(TRUE)} retrieves \code{sigma} (\code{FALSE} gives \code{log(sigma)}).
+The additional mgcv likelihood scale is fixed at one.
 
 Fitted values and response predictions are the arithmetic mean of the
 underlying, uncensored distribution, conditional on the model terms.
@@ -71,10 +72,11 @@ uses the response mean \code{mu} and the family's current \code{sigma}.
 }
 \section{Fitting routes and NCV limitations}{
 
-REML and ML are supported in \code{gam()}; REML, ML and fREML in ordinary
-\code{bam()}; and fREML and NCV in discrete \code{bam()}. Discrete NCV requires
-mgcv >= 1.9-4 and optimizes a working-model criterion. Use \code{scale = 1}
-in \code{bam()} for absolute log-likelihood comparisons: mgcv 1.9-4 can
+With mgcv 1.9-5, \code{gam()} supports REML, ML, NCV and QNCV.
+Ordinary \code{bam()} routes include REML, ML and fREML.
+Discrete \code{bam()} offers fREML and NCV. Discrete NCV requires mgcv >= 1.9-4
+and optimizes a working-model criterion. Use \code{scale = 1} in \code{bam()} for
+absolute log-likelihood comparisons: mgcv 1.9-4 can
 otherwise mislabel the fixed external likelihood scale.
 
 With mgcv 1.9-4, \code{gam()} NCV and QNCV requests (also via \code{nei}

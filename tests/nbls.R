@@ -1,4 +1,4 @@
-library(inlaws)
+library("inlaws")
 
 near <- function(x, y, tol = 1e-6) {
   stopifnot(length(x) == length(y), all(is.finite(x)), all(is.finite(y)),
@@ -50,6 +50,7 @@ near(f$deviance, sum(residuals(f, type = "deviance")^2))
 near(residuals(f, type = "response"), d$y - f$fitted.values[, 1])
 near(residuals(f, type = "pearson"), (d$y - f$fitted.values[, 1]) /
        sqrt(f$fitted.values[, 1] + f$fitted.values[, 1]^2 / f$fitted.values[, 2]))
+near(residuals(f, "scaled.pearson"), residuals(f, "pearson"))
 near(as.numeric(logLik(f)), f$l)
 near(AIC(f), -2 * as.numeric(logLik(f)) + 2 * attr(logLik(f), "df"))
 null <- optimize(function(a) -sum(dnbinom(d$y, mu = exp(a + d$a),

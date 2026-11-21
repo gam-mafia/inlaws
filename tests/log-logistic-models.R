@@ -1,4 +1,4 @@
-library(inlaws)
+library("inlaws")
 near <- function(a,b,tol=1e-5) stopifnot(isTRUE(all.equal(as.numeric(a),as.numeric(b),tolerance=tol)))
 fails <- function(expr) stopifnot(inherits(tryCatch(expr,error=identity),"error"))
 loglik <- function(y,mu,s) dlogis(log(y),log(mu*sinpi(s)/(pi*s)),s,log=TRUE)-log(y)
@@ -53,12 +53,10 @@ for (fixed in c(FALSE,TRUE)) {
   check_default(default,f)
   check(f,"fREML",fixed); near(fitted(f),fitted(ordinary),.005)
   near(f$family$getTheta(TRUE),ordinary$family$getTheta(TRUE),.005)
-  if(packageVersion("mgcv")>="1.9.4") {
-    f<-bam(form,data=d,family=log_logistic(theta),method="NCV",discrete=TRUE,scale=1,nthreads=1)
-    check(f,"NCV",fixed)
-    default<-bam(form,data=d,family=log_logistic(theta),method="NCV",discrete=TRUE,nthreads=1)
-    check_default(default,f)
-  }
+  f<-bam(form,data=d,family=log_logistic(theta),method="NCV",discrete=TRUE,scale=1,nthreads=1)
+  check(f,"NCV",fixed)
+  default<-bam(form,data=d,family=log_logistic(theta),method="NCV",discrete=TRUE,nthreads=1)
+  check_default(default,f)
 }
 nei<-list(a=seq_len(n),ma=seq_len(n),d=seq_len(n),md=seq_len(n))
 f<-gam(form,data=d,family=log_logistic(),method="NCV",nei=nei)
@@ -67,12 +65,10 @@ grouped<-list(a=seq_len(n),ma=seq.int(4L,n,4L),d=as.vector(apply(matrix(seq_len(
 for (theta in list(NULL,.25)) {
   f<-gam(form,data=d,family=log_logistic(theta),method="NCV",nei=grouped)
   check(f,"NCV",!is.null(theta))
-  if(packageVersion("mgcv")>="1.9.4") {
-    f<-bam(form,data=d,family=log_logistic(theta),method="NCV",discrete=TRUE,nei=grouped,scale=1,nthreads=1)
-    check(f,"NCV",!is.null(theta))
-    default<-bam(form,data=d,family=log_logistic(theta),method="NCV",discrete=TRUE,nei=grouped,nthreads=1)
-    check_default(default,f)
-  }
+  f<-bam(form,data=d,family=log_logistic(theta),method="NCV",discrete=TRUE,nei=grouped,scale=1,nthreads=1)
+  check(f,"NCV",!is.null(theta))
+  default<-bam(form,data=d,family=log_logistic(theta),method="NCV",discrete=TRUE,nei=grouped,nthreads=1)
+  check_default(default,f)
 }
 # Reusing a constructor must not mutate previous models or the template.
 for (engine in c("gam","bam","discrete")) {

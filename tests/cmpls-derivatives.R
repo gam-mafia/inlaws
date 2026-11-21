@@ -1,4 +1,4 @@
-library(inlaws)
+library("inlaws")
 near <- function(x, y, tol = 3e-5) stopifnot(length(x) == length(y),
   all(is.finite(x)), all(is.finite(y)), all(abs(x-y) <= tol * (1+abs(y))))
 f <- cmpls(control = list(sum_tol = 1e-12, mean_tol = 1e-12))

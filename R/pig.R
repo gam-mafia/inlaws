@@ -17,10 +17,9 @@
 #' dispersion is global. `getTheta(TRUE)` returns theta and `getTheta()`
 #' returns log(theta).
 #'
-#' Supported smoothing methods are REML, ML, and NCV for `gam()`; REML, ML,
-#' and fREML for ordinary `bam()`; and fREML and NCV for discrete `bam()`.
-#' Discrete NCV requires mgcv >= 1.9-4 and uses a working-model criterion
-#' which need not agree with `gam()` NCV. `gamm()` is not supported.
+#' `gam()` uses REML, ML, NCV, or QNCV. Ordinary `bam()` uses REML, ML, or
+#' fREML, and discrete `bam()` uses fREML or NCV. Discrete NCV uses a
+#' working-model criterion that can differ from `gam()` NCV.
 #' The fitting callbacks use variance-based positive working information
 #' when mgcv requests expected information; likelihood derivatives are exact.
 #' Dispersion can approach zero for Poisson or

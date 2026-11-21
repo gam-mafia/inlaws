@@ -1,4 +1,4 @@
-library(inlaws)
+library("inlaws")
 
 near <- function(x, y, tol = 1e-6) {
   stopifnot(length(x) == length(y), all(is.finite(x)), all(is.finite(y)),
@@ -104,7 +104,8 @@ for (k in 1:3) {
     lbeta(d$y[ix] + aa, d$m[ix] - d$y[ix] + bb) - lbeta(aa, bb))
 }
 near(nc$gcv.ubre, exact, .002)
-expect_error(gam(form, data = d, family = family, method = "QNCV"), "not QNCV")
+fq <- gam(form, data = d, family = family, method = "QNCV")
+stopifnot(fq$method == "QNCV", is.finite(fq$gcv.ubre))
 
 expect_error(betabinomial(c("probit", "log")), "requires links")
 expect_error(gam(list(cbind(y, 1 - y) ~ 1, ~ 1), data = data.frame(y = c(0, 1)),

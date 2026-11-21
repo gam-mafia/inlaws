@@ -1,7 +1,7 @@
 # Optional developer validation, run separately from routine package checks.
 # Install brms explicitly with install.packages("brms"), then run this script
 # with an installed development version of inlaws.
-library(inlaws)
+library("inlaws")
 if (!requireNamespace("brms", quietly = TRUE)) stop("Install brms to run this comparison")
 
 set.seed(71)

@@ -42,9 +42,11 @@ check_ncv <- function(fit, fixed = FALSE) {
   if (fixed) near(fit$family$getTheta(TRUE), 0.5)
 }
 
+# GAM NCV needs mgcv 1.9-5 to preserve held-out censoring and offsets.
+# Discrete BAM has its own working-model criterion.
 for (fixed in c(FALSE, TRUE)) {
   theta <- if (fixed) 0.5 else NULL
-  if (packageVersion("mgcv") != "1.9.4") {
+  if (packageVersion("mgcv") >= "1.9.5") {
     # NULL nei requests leave-one-out NCV, including estimation of sigma when
     # theta is NULL. Grouped NCV exercises explicit censor-preserving subsets.
     for (neighbourhood in list(NULL, grouped)) {
@@ -61,7 +63,7 @@ for (fixed in c(FALSE, TRUE)) {
   check_ncv(fit, fixed)
 }
 
-if (packageVersion("mgcv") != "1.9.4") {
+if (packageVersion("mgcv") >= "1.9.5") {
   # Explicit singleton neighbourhoods must reproduce default leave-one-out NCV.
   explicit_loo <- gam(y ~ s(x, k = 7), data = dat, family = clognormal(),
                       method = "NCV", nei = loo)

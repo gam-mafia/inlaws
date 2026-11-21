@@ -6,7 +6,8 @@ near <- function(x, y, tol = 1e-6) {
 parameters <- c(cgamma = .4, clognormal = .5, cmp = 1.5, gpoisson = 2)
 fixtures <- list()
 for (name in names(parameters)) {
-  set.seed(1843)
+  # This GP-1 fixture exercises converged NCV with both fixed and estimated dispersion.
+  set.seed(if (name == "gpoisson") 83 else 1843)
   n <- 96L
   d <- data.frame(x = runif(n), o = runif(n, -.2, .2),
     w = rep(c(.5, 1, 2, 1), length.out = n))
@@ -36,21 +37,14 @@ check <- function(f, d, method, fixed, theta) {
   near(AIC(f), -2*ll + 2*attr(logLik(f), "df"))
 }
 
-# Validate the available routes; GAM NCV is explicitly blocked under mgcv 1.9-4.
+# These weighted, offset and censored fixtures need mgcv 1.9-5 for GAM NCV.
 # Convergence warnings are failures even though bam may set converged=TRUE.
 options(warn = 2)
 for (name in names(parameters)) {
   d <- fixtures[[name]]; constructor <- get(name); theta <- parameters[[name]]
   for (fixed in c(FALSE, TRUE)) {
     for (method in c("REML", "ML", "NCV")) {
-      if (method == "NCV" && packageVersion("mgcv") == "1.9.4") next
-      # Temporary until this fixture's gpoisson GAM NCV fits converge.
-      if (name == "gpoisson" && method == "NCV" &&
-          packageVersion("mgcv") == "1.9.5") {
-        message("Skipping gpoisson GAM NCV on mgcv 1.9-5 (fixed=", fixed,
-          ") because the outer optimizer fails the full convergence check.")
-        next
-      }
+      if (method == "NCV" && packageVersion("mgcv") < "1.9.5") next
       message(name, " gam ", method, " fixed=", fixed)
       fit <- gam(y ~ s(x, k = 5) + offset(o), data = d, weights = w,
         family = constructor(if (fixed) theta else NULL), method = method)

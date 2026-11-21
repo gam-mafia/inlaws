@@ -42,7 +42,8 @@
 #' defined here: an unrestricted saturated Dirichlet likelihood is unbounded.
 #' Deviance and null deviance are `NA`, so no deviance explained is reported.
 #'
-#' This family supports REML in `gam()`, not `bam()`, `gamm()`, or NCV.
+#' This family supports REML, NCV, and QNCV in `gam()`.
+#' `bam()` and `gamm()` are unavailable.
 #' Fourth-order derivative storage grows as `choose(K + 4, 4)` per observation
 #' for the highest order alone, so modest component counts are recommended.
 #' Changing the reference by reordering columns can change penalized fits.
@@ -50,13 +51,14 @@
 #' The mean/concentration parameterization agrees with `brms::dirichlet()`
 #' using its default logit mean link, log concentration link, and first-column
 #' reference. The fitting criteria and uncertainty calculations differ:
-#' this family uses penalized likelihood and REML, not posterior sampling.
+#' this family uses penalized likelihood with smoothing parameter selection.
 #' Use explicit namespaces when both packages are attached.
 #' The family's `rd(mu, wt, scale)` callback takes link-scale predictors and
 #' returns a response matrix. The compatibility arguments `wt` and `scale`
 #' do not change the distribution. Very
 #' small shape parameters can yield simulated zeros through floating-point
 #' underflow; such draws cannot be used directly as fitting responses.
+#' @template ncv-neighbourhoods
 #'
 #' @examples
 #' set.seed(12)
@@ -81,18 +83,21 @@ dirichlet <- function(K = 1) {
 
   ll <- function(y, X, coef, wt, family, offset = NULL, deriv = 0,
                  d1b = 0, d2b = 0, Hp = NULL, rank = 0, fh = NULL,
-                 D = NULL, eta = NULL, sandwich = FALSE) {
-    if (is.null(eta)) eta <- .dirichlet_eta(X, coef, offset)
+                 D = NULL, eta = NULL, ncv = FALSE, sandwich = FALSE) {
+    supplied <- !is.null(eta)
+    if (!supplied) eta <- .dirichlet_eta(X, coef, offset)
     order <- if (deriv == 0) 0L else if (deriv == 1) 2L else
       if (deriv < 4) 3L else 4L
     z <- .dirichlet_derivatives(y, eta, wt, jets, order)
-    if (!deriv) return(list(l = z$l))
+    out <- list(l = z$l, l0 = z$l0)
+    if (!deriv || (supplied && !is.finite(z$l))) return(out)
     if (!is.finite(z$l)) stop("non-finite Dirichlet derivatives at current coefficients")
-    out <- mgcv::gamlss.gH(X, attr(X, "lpi"), z$l1, z$l2, tri$i2,
+    jj <- attr(X, "lpi")
+    if (!is.null(jj)) out <- c(out, .inlaws_gamlss_gh(X, jj, z$l1, z$l2, tri$i2,
                           l3 = z$l3, i3 = tri$i3, l4 = z$l4, i4 = tri$i4,
                           d1b = d1b, d2b = d2b, deriv = deriv - 1,
-                          fh = fh, D = D, sandwich = sandwich)
-    out$l <- z$l
+                          fh = fh, D = D, sandwich = sandwich))
+    if (ncv) out[c("l1", "l2", "l3")] <- z[c("l1", "l2", "l3")]
     out
   }
 
@@ -161,6 +166,7 @@ dirichlet <- function(K = 1) {
   family <- structure(list(family = "dirichlet", link = NULL, nlp = q, ll = ll,
                  linfo = replicate(q, stats::make.link("identity"), simplify = FALSE),
                  tri = tri, initialize = initialize, initial = .dirichlet_initial,
+                 ncv = .inlaws_gamlss_ncv,
                  preinitialize = preinitialize,
                  postproc = expression({
                    object$deviance <- object$null.deviance <- NA_real_
@@ -171,7 +177,7 @@ dirichlet <- function(K = 1) {
                  d2link = 1, d3link = 1, d4link = 1, ls = 1,
                  available.derivs = 2, discrete.ok = FALSE),
             class = c("general.family", "extended.family", "family"))
-  .inlaws_diagnostic_family(family, "dirichlet")
+  .inlaws_ncv_family(.inlaws_diagnostic_family(family, "dirichlet"))
 }
 
 .dirichlet_eta <- function(X, beta, offset) {
@@ -241,17 +247,19 @@ dirichlet <- function(K = 1) {
   n <- nrow(y); q <- ncol(y)
   if (is.null(wt)) wt <- rep(1, n)
   p <- .dirichlet_parameters(eta)
-  alpha <- p$mu * p$phi
+  log_alpha <- p$logmu + eta[, q]
   active <- wt > 0
+  log_alpha[!active, ] <- 0
+  alpha <- exp(log_alpha)
   if (any(!is.finite(alpha[active, , drop = FALSE])) ||
       any(alpha[active, , drop = FALSE] <= 0)) return(list(l = -Inf))
   # Zero-weight observations must not create 0 * Inf in the likelihood.
-  alpha[!active, ] <- 1
   phi <- rowSums(alpha)
+  if (any(!is.finite(phi))) return(list(l = -Inf))
   logy <- log(y)
   logy[!active, ] <- 0
   l0 <- wt * (lgamma(phi) - rowSums(lgamma(alpha)) + rowSums((alpha - 1) * logy))
-  if (!order) return(list(l = sum(l0)))
+  if (!order) return(list(l = sum(l0), l0 = l0))
   cols <- which(jets$degree <= order)
   powers <- jets$powers[cols, , drop = FALSE]
   m <- length(cols)
@@ -268,23 +276,36 @@ dirichlet <- function(K = 1) {
     a
   })
   den <- Reduce(`+`, ej)
-  inv <- .dirichlet_compose(den,
-    lapply(0:order, function(r) (-1)^r * factorial(r) / den[, 1L]^(r + 1L)), jets, order)
-  phij <- matrix(0, n, m)
-  ix <- which(powers[, q] == jets$degree[cols])
-  phij[, ix] <- outer(phi, 1 / jets$factorial[ix])
-  lg <- function(a) .dirichlet_compose(a,
-    c(list(lgamma(a[, 1L])), lapply(seq_len(order), function(r)
-      psigamma(a[, 1L], deriv = r - 1L))), jets, order)
-  ans <- lg(phij)
+  log_den <- .dirichlet_compose(den, c(list(log(den[, 1L])),
+    lapply(seq_len(order), function(r) (-1)^(r - 1L) * factorial(r - 1L) /
+      den[, 1L]^r)), jets, order)
+  linear <- which(jets$degree[cols] == 1L)
+  log_phi <- matrix(0, n, m)
+  log_phi[, 1L] <- log(phi)
+  log_phi[, linear[q]] <- 1
+  lg <- function(a, log_a) {
+    # Move the pole into the log-shape jet. Differentiating lgamma(a)
+    # directly can overflow the polygammas even when the chain rule is finite.
+    shift <- a[, 1L] < 1
+    a[, 1L] <- a[, 1L] + shift
+    .dirichlet_compose(a, c(list(lgamma(a[, 1L])),
+      lapply(seq_len(order), function(r) psigamma(a[, 1L], deriv = r - 1L))),
+      jets, order) - shift * log_a
+  }
+  phi_jet <- .dirichlet_compose(log_phi, rep(list(phi), order + 1L), jets, order)
+  ans <- lg(phi_jet, log_phi)
+  log_base <- log_phi - log_den
   for (j in seq_len(q)) {
-    a <- .dirichlet_multiply(.dirichlet_multiply(ej[[j]], inv, jets), phij, jets)
-    ans <- ans - lg(a) + a * logy[, j]
+    log_a <- log_base
+    log_a[, 1L] <- log_alpha[, j]
+    if (j > 1L) log_a[, linear[j - 1L]] <- log_a[, linear[j - 1L]] + 1
+    a <- .dirichlet_compose(log_a, rep(list(alpha[, j]), order + 1L), jets, order)
+    ans <- ans - lg(a, log_a) + a * logy[, j]
   }
   ans <- ans * wt
   ans[!active, ] <- 0
   if (any(!is.finite(ans))) return(list(l = -Inf))
-  out <- list(l = sum(l0), l3 = 0, l4 = 0)
+  out <- list(l = sum(l0), l0 = l0, l3 = 0, l4 = 0)
   for (r in seq_len(order)) {
     ix <- which(jets$degree[cols] == r)
     out[[paste0("l", r)]] <- sweep(ans[, ix, drop = FALSE], 2L, jets$factorial[ix], `*`)

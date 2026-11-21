@@ -104,9 +104,11 @@ first derivatives. Consequently D/2-ls equals the negative weighted log
 likelihood. AIC is computed from that likelihood independently.
 
 Caches are bounded to the most recent mean evaluation and saturated response
-vector. They are local to each family. preinitialize clones the family before
-fitting, retaining mgcv-added components while preventing reuse of a family
-object from mutating an earlier fit's dispersion.
+vector. They are local to each family. `preinitialize()` clones the family
+before `gam()` computes initial smoothing parameters. `fix.family.link()`
+clones before `bam()` retains references for fitting and AIC calculation.
+For a mean formula without an intercept, the null model uses the mean offset
+as its entire linear predictor.
 
 ## References
 

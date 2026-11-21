@@ -103,7 +103,7 @@ if (packageVersion("mgcv") == "1.9.4") {
 # Every intended constructor installs the shared early hook. This checks public
 # gam routes too, rather than equating a family field with integration coverage.
 constructors <- list(betals, betabinomial, cgammals, clognormalls,
-  log_logisticls, cmpls, pigls, gen_gammalss, cgen_gammalss, scatlss, zinb, zanb)
+  log_logisticls, cmpls, pigls, gen_gammalss, cgen_gammalss, scatlss, dirichlet, zinb, zanb)
 for (constructor in constructors) {
   fam <- constructor()
   stopifnot(identical(fam$check.nei, guard),
@@ -154,6 +154,8 @@ if (broken) for (variable in c("y", "x", "z", "o", "o2", "w", "offset_argument")
 if (broken) {
   dd <- dat; dd$y <- cbind(rep(2L, n), rep(3L, n)); dd$y[2L, 2L] <- NA
   blocked(gam(form, data = dd, family = betabinomial(), method = "NCV", nei = nb))
+  dd <- dat; dd$y <- cbind(rep(.4, n), rep(.6, n)); dd$y[2L, 2L] <- NA
+  blocked(gam(form, data = dd, family = dirichlet(), method = "QNCV", nei = nb))
   dd <- dat; dd$x[2L] <- NA; dd$o2[5L] <- NA; dd$w[8L] <- NA
   blocked(gam(form, data = dd, weights = w, family = betals(), method = "NCV", nei = nb))
 }
@@ -304,10 +306,8 @@ if (broken) {
 }
 
 # The shared helper does not replace independent QNCV and extended-family guards.
-for (fam in list(betals(), betabinomial())) {
-  msg <- error_message(gam(form, data = dat, family = fam, method = "QNCV"))
-  stopifnot(grepl("supports NCV but not QNCV", msg, fixed = TRUE))
-}
+msg <- error_message(gam(form, data = dat, family = betals(), method = "QNCV"))
+stopifnot(grepl("supports NCV but not QNCV", msg, fixed = TRUE))
 if (packageVersion("mgcv") == "1.9.4") for (fam in list(cgamma(.4), clognormal(.5), cmp(1.5), gpoisson(2))) {
   for (method in c("NCV", "QNCV", "REML")) {
     msg <- error_message(gam(y ~ s(x, k = 4), data = dat, family = fam,

@@ -71,8 +71,9 @@ including repeated indices and prediction subsets of a different length from
 the training data. The smoothing gradient applies the chain rule using
 `deta.cv` for the first term and `X_j %*% db_j` for the second. `Vg` is the
 cross-product of these individual score-gradient contributions. The returned
-CV predictor attributes retain the original offsets. QNCV is explicitly
-rejected. NCV uses BFGS smoothing selection.
+CV predictor attributes retain the original offsets. QNCV uses the same
+deletion updates and a quadratic expansion at the full-fit predictors.
+Both criteria use BFGS smoothing selection.
 
 ## Predictions, residuals and callbacks
 

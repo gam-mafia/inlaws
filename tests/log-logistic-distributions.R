@@ -1,4 +1,4 @@
-library(inlaws)
+library("inlaws")
 near<-function(a,b,tol=1e-8)stopifnot(isTRUE(all.equal(as.numeric(a),as.numeric(b),tolerance=tol)))
 fails<-function(expr)stopifnot(inherits(tryCatch(expr,error=identity),"error"))
 for (s in c(.001,.1,.3,.49,.5,.8,.99)) {

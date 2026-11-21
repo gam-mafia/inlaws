@@ -1,4 +1,4 @@
-library(inlaws)
+library("inlaws")
 near <- function(x,y,tol=2e-5) stopifnot(length(x)==length(y), all(is.finite(x)),
   all(is.finite(y)),all(abs(x-y)<=tol*(1+abs(y))))
 error <- function(expr,pattern) {

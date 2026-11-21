@@ -13,9 +13,9 @@
 #'   `mu = exp(eta1)`, dispersion is `theta = exp(eta2)`, and the variance is
 #'   `mu + theta * mu^2`, using the same parameterization as [pig()].
 #'
-#'   REML supports outer Newton and BFGS optimization; NCV uses BFGS, with
+#'   REML supports outer Newton and BFGS optimization. NCV and QNCV use BFGS, with
 #'   default leave-one-out or neighbourhoods supplied through `nei`.
-#'   ML, QNCV, EFS, `bam()` and `gamm()` are outside the supported scope.
+#'   ML, EFS, `bam()` and `gamm()` are outside the supported scope.
 #'   Separate coefficients are required for the predictors: the same covariates
 #'   can appear in both formulae, but shared coefficients are not supported.
 #'
@@ -72,7 +72,7 @@ pigls <- function(link = list("log", "log")) {
   })
   family <- structure(list(family = "pigls", link = unlist(link), nlp = 2L,
     linfo = linfo, tri = mgcv::trind.generator(2), ll = .pigls_ll,
-    ncv = .pigls_ncv, initialize = initialize, init = .pigls_init,
+    ncv = .inlaws_gamlss_ncv, initialize = initialize, init = .pigls_init,
     postproc = postproc, residuals = .pigls_residuals, predict = .pigls_predict,
     dev.resids = .pigls_deviance,
     null.deviance = .pigls_null_deviance,
@@ -145,7 +145,7 @@ pigls <- function(link = list("log", "log")) {
   l3 <- if (order >= 3) packed[[3]] else 0
   l4 <- if (order >= 4) packed[[4]] else 0
   ret <- list()
-  if (!supplied && !is.null(jj)) ret <- mgcv::gamlss.gH(
+  if (!supplied && !is.null(jj)) ret <- .inlaws_gamlss_gh(
     X, jj, packed[[1]], packed[[2]], family$tri$i2,
     l3 = l3, i3 = family$tri$i3, l4 = l4, i4 = family$tri$i4,
     d1b = d1b, d2b = d2b, deriv = deriv - 1L, fh = fh, D = D, sandwich = sandwich)
@@ -155,41 +155,6 @@ pigls <- function(link = list("log", "log")) {
   }
   ret$l0 <- ell[, 1]; ret$l <- sum(ret$l0)
   ret
-}
-
-.pigls_ncv <- function(X, y, wt, nei, beta, family, llf, H = NULL,
-                       Hi = NULL, R = NULL, offset = NULL, dH = NULL,
-                       db = NULL, deriv = FALSE, nt = 1) {
-  if (isTRUE(family$qapprox)) stop("pigls does not support QNCV")
-  if (is.null(wt)) wt <- rep(1, length(y))
-  # Obtain the neighbourhood updates with gamma=1, then reconstruct the
-  # gamma adjustment using the actual prediction rows and both offsets.
-  # This also handles reordered/repeated nei$d and prediction subsets.
-  lf <- llf; lf$gamma <- 1
-  native <- utils::getFromNamespace("gamlss.ncv", "mgcv")
-  ret <- native(X, y, wt, nei, beta, family, lf, H = H, Hi = Hi,
-                R = R, offset = offset, dH = dH, db = db, deriv = deriv, nt = nt)
-  ecv <- attr(ret$NCV, "eta.cv"); dcv <- attr(ret$NCV, "deta.cv")
-  eta <- .pigls_eta(X, beta, offset)
-  base <- family$ll(y, X, beta, wt, family, eta = eta, deriv = 1, ncv = TRUE)
-  ix <- nei$d; gamma <- if (is.null(llf$gamma)) 1 else llf$gamma
-  cv <- family$ll(y[ix], X[ix, , drop = FALSE], beta, wt[ix], family,
-                  eta = ecv, deriv = 1, ncv = TRUE)
-  score <- -gamma * cv$l - (1 - gamma) * sum(base$l0[ix])
-  grad <- Vg <- NULL
-  if (deriv > 0) {
-    jj <- attr(X, "lpi"); m <- length(ix)
-    g <- matrix(0, m, ncol(db))
-    for (j in 1:2) {
-      d0 <- X[ix, jj[[j]], drop = FALSE] %*% db[jj[[j]], , drop = FALSE]
-      dc <- dcv[seq_len(m) + (j - 1L) * m, , drop = FALSE]
-      g <- g - gamma * cv$l1[, j] * dc - (1 - gamma) * base$l1[ix, j] * d0
-    }
-    grad <- colSums(g); Vg <- crossprod(g)
-  }
-  attr(score, "eta.cv") <- ecv
-  if (deriv != 0) attr(score, "deta.cv") <- dcv
-  list(NCV = score, NCV1 = grad, error = ret$error, Vg = Vg)
 }
 
 .pigls_init <- function(y, x, E, wt, offset, start) {

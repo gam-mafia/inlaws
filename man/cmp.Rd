@@ -26,8 +26,8 @@ functions.
 \description{
 \ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#experimental}{\figure{lifecycle-experimental.svg}{options: alt='[Experimental]'}}}{\strong{[Experimental]}}
 
-An extended family for \code{\link[mgcv:gam]{mgcv::gam()}} with a log link for the exact mean
-and a fixed or estimated global dispersion parameter.
+An extended family for \code{\link[mgcv:gam]{mgcv::gam()}} and \code{\link[mgcv:bam]{mgcv::bam()}} with a log link for
+the exact mean and a fixed or estimated global dispersion parameter.
 }
 \details{
 The probability at integer y >= 0 is proportional to
@@ -39,12 +39,19 @@ Supplying another scale to \code{gam()} is an error. An all-zero response
 among observations with positive weights has no finite log-mean fit
 and is rejected.
 
-This pure-R reference implementation uses adaptive
-summation and analytic Taylor arithmetic for derivatives. Extreme means
-or dispersion can exhaust numerical limits, which produces an error.
-Large-data performance has not been benchmarked.
+\code{gam()} supports \code{method = "REML"}, \code{"ML"}, \code{"NCV"} and \code{"QNCV"}.
+\code{bam()} supports its extended-family selectors, including \code{"fREML"} and,
+with \code{discrete = TRUE}, \code{"fREML"} and \code{"NCV"}. Supply \code{scale = 1} to
+\code{bam()} so that \code{logLik()} treats the likelihood scale as fixed.
+Entirely unpenalized ML fits can encounter an upstream LAPACK error when
+individual observations have negative log-link curvature. Use REML in
+this case.
 
-Near-deterministic data may not have a finite dispersion estimate.
+This pure-R reference implementation uses adaptive summation and analytic
+Taylor arithmetic for derivatives. Large-data performance has not been
+validated. Extreme means or dispersion can exhaust numerical limits,
+which produces an error. Near-deterministic data may not have a finite
+dispersion estimate.
 
 Prior weights multiply log likelihood contributions; they do not change
 the distribution used by the \code{rd}, \code{qf}, and \code{cdf} callbacks. These
@@ -55,19 +62,12 @@ is infinity for positive means. A zero mean is a point mass at zero.
 
 \code{getTheta(TRUE)} returns nu; \code{getTheta()} returns log(nu).
 }
-\section{Fitting routes and NCV limitations}{
+\section{NCV limitations}{
 
-REML and ML are supported in \code{gam()}; REML, ML and fREML in ordinary
-\code{bam()}; and fREML and NCV in discrete \code{bam()}. Discrete NCV requires
-mgcv >= 1.9-4 and optimizes a working-model criterion. Use \code{scale = 1}
-in \code{bam()} for absolute log-likelihood comparisons: mgcv 1.9-4 can
-otherwise mislabel the fixed external likelihood scale.
-
-With mgcv 1.9-4, \code{gam()} NCV and QNCV requests (also via \code{nei}
-during REML) are rejected for separate upstream numerical NCV issues.
-These restrictions remain after complete-case filtering. Support must be
-reassessed on later mgcv versions. Discrete \code{bam()} NCV uses
-a separate fitting route and remains available.
+The extended-family \code{gam()} NCV and QNCV routes are unavailable with mgcv
+1.9-4 due to upstream numerical issues. This restriction also applies to
+NCV requested via \code{nei} and remains after complete-case filtering.
+Discrete \code{bam()} NCV uses a separate working-model criterion.
 }
 
 \section{NCV neighbourhood preprocessing}{

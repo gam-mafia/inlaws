@@ -45,12 +45,19 @@ saturated log likelihood, its derivatives are obtained by the envelope theorem:
 
 The family deviance is 2*w*(S-L); `ls` returns the weighted sum of S and
 its dispersion derivatives. The likelihood constants are retained for AIC.
-The extra scale is fixed at one. Each new fit rebuilds the family closure.
+The extra scale is fixed at one. `fix.family.link()` clones the family
+before `bam()` retains references for fitting and AIC calculation.
 
-Observed mu information estimates expected information in mgcv's `EDmu2`
-slot, as permitted by the extended-family interface. Exact expected Poisson
-information is used for fixed phi=1. Likelihood optimization uses the full
-observed log-link curvature, which can be negative for individual observations.
+The latent immigrant count has distribution Poisson(c*mu). Its Fisher
+information in mu is c/mu. The observed-data score is the conditional
+expectation of the complete-data score given the total count, so c/mu is an
+upper bound on observed-data Fisher information. `EDmu2 = 2*w*c/mu` gives
+ordinary `bam()` positive working curvature even at zero counts. `EDmu3`
+uses the expected complete-data third derivative, and `EDmu2th` is the
+derivative of the working curvature with respect to t. At phi=1 the observed
+data are Poisson and the working information is exact. The observed
+likelihood derivatives, including the log-link curvature used in likelihood
+optimization, are retained.
 
 Fixed phi=1 has no internal nuisance coordinate: `getTheta()` returns
 `numeric(0)` because mgcv's C interface rejects an infinite coordinate even

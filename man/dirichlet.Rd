@@ -52,7 +52,8 @@ Deviance residuals are not
 defined here: an unrestricted saturated Dirichlet likelihood is unbounded.
 Deviance and null deviance are \code{NA}, so no deviance explained is reported.
 
-This family supports REML in \code{gam()}, not \code{bam()}, \code{gamm()}, or NCV.
+This family supports REML, NCV, and QNCV in \code{gam()}.
+\code{bam()} and \code{gamm()} are unavailable.
 Fourth-order derivative storage grows as \code{choose(K + 4, 4)} per observation
 for the highest order alone, so modest component counts are recommended.
 Changing the reference by reordering columns can change penalized fits.
@@ -60,7 +61,7 @@ Changing the reference by reordering columns can change penalized fits.
 The mean/concentration parameterization agrees with \code{brms::dirichlet()}
 using its default logit mean link, log concentration link, and first-column
 reference. The fitting criteria and uncertainty calculations differ:
-this family uses penalized likelihood and REML, not posterior sampling.
+this family uses penalized likelihood with smoothing parameter selection.
 Use explicit namespaces when both packages are attached.
 The family's \code{rd(mu, wt, scale)} callback takes link-scale predictors and
 returns a response matrix. The compatibility arguments \code{wt} and \code{scale}
@@ -68,6 +69,28 @@ do not change the distribution. Very
 small shape parameters can yield simulated zeros through floating-point
 underflow; such draws cannot be used directly as fitting responses.
 }
+\section{NCV neighbourhood preprocessing}{
+
+In mgcv 1.9-4, model-frame omission can corrupt explicit \code{nei}
+neighbourhoods before fitting. This is shared mgcv preprocessing, separate
+from likelihood, deletion-update, QNCV and covariance restrictions. This
+family checks the adjusted structure in \code{gam()}'s general-family \code{presetup}
+hook and rejects inconsistent indices or cumulative group boundaries, also
+when \code{nei} requests NCV calculations during REML. The check is not tied to
+a presumed fixed mgcv version. Correctly adjusted whole-group omissions,
+complete-data neighbourhoods and default leave-one-out (\code{nei = NULL})
+constructed after omission remain available within the family's supported
+methods. Ordinary REML without \code{nei} is unaffected.
+
+Remove incomplete observations using all relevant response, predictor,
+offset and weight variables, apply subset selection, then construct \code{nei}
+using the resulting data's row indices. Deletion and prediction sets may
+differ; their ordering, repetitions and grouping are not changed by inlaws.
+If an incomplete \code{nei} list fails inside mgcv's adjustment itself, it fails
+before any family hook and cannot receive the inlaws diagnostic. See the
+family compatibility vignette for route and version qualifications.
+}
+
 \examples{
 set.seed(12)
 n <- 150

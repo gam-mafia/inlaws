@@ -28,7 +28,9 @@ Supply two formulae, with the response in the first and a one-sided
 dispersion formula second. Both support offsets. The model has mean
 \code{mu = exp(eta1)}, dispersion \code{phi = exp(eta2)}, shape \code{1/phi}, scale
 \code{mu*phi}, and variance \code{phi*mu^2}. There is no artificial dispersion bound;
-very small dispersion can produce singular fits.
+very small dispersion can produce singular fits. When censoring bounds
+are close to the mean, incomplete-gamma derivatives may fail to converge
+at very small dispersion.
 
 Use a positive vector for exact responses or the two-column censoring
 matrix described in \code{\link[=cgamma]{cgamma()}}. All censoring types may be mixed; zero
@@ -36,10 +38,10 @@ lower bounds are supported. Missing rows are handled by \code{gam()}'s
 \code{na.action}. Finite nonnegative case weights multiply likelihood terms,
 including zero weights, and do not change the response distribution.
 
-REML and NCV smoothing selection are supported, including neighbourhoods
-supplied through \code{nei}. \code{bam()}, \code{gamm()}, ML smoothing selection, QNCV,
-and shared coefficients between predictors are outside the supported
-scope. The same covariates and smooths may appear in both formulae.
+REML, NCV, and QNCV smoothing selection are supported, including
+neighbourhoods supplied through \code{nei}. Use \code{gam()} with separate
+coefficient blocks. The same covariates and smooths may appear in both
+formulae.
 
 Fitted values and response predictions have columns \code{mu}, \code{phi}; link
 predictions are their natural logarithms. Response standard errors use

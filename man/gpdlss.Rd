@@ -42,7 +42,11 @@ the distribution's support. Prior weights multiply log likelihoods.
 Fitted values and \code{predict(..., type = "response")} are matrices with
 columns for scale and shape (in that order), both on their natural scales. They are not
 conditional means. Link predictions are log scale and linked shape.
-Only \code{gam()} with ordinary model matrices is supported, not \code{bam()}.
+Fit with \code{gam()} and ordinary model matrices using REML, NCV or QNCV.
+Exact NCV requires the held-out excesses to lie in the support implied by
+their neighbourhood-deletion predictors. A trial fit outside that
+support has an infinite NCV score. QNCV uses a local quadratic
+approximation around the full-data predictors.
 
 The family includes \code{rd(mu, wt = NULL, scale = NULL)},
 \code{qf(p, mu, wt = NULL, scale = NULL)} and
@@ -66,6 +70,28 @@ Probability-integral-transform residuals can instead be calculated with
 
 \code{gpd()} is an alias for \code{gpdlss()}.
 }
+\section{NCV neighbourhood preprocessing}{
+
+In mgcv 1.9-4, model-frame omission can corrupt explicit \code{nei}
+neighbourhoods before fitting. This is shared mgcv preprocessing, separate
+from likelihood, deletion-update, QNCV and covariance restrictions. This
+family checks the adjusted structure in \code{gam()}'s general-family \code{presetup}
+hook and rejects inconsistent indices or cumulative group boundaries, also
+when \code{nei} requests NCV calculations during REML. The check is not tied to
+a presumed fixed mgcv version. Correctly adjusted whole-group omissions,
+complete-data neighbourhoods and default leave-one-out (\code{nei = NULL})
+constructed after omission remain available within the family's supported
+methods. Ordinary REML without \code{nei} is unaffected.
+
+Remove incomplete observations using all relevant response, predictor,
+offset and weight variables, apply subset selection, then construct \code{nei}
+using the resulting data's row indices. Deletion and prediction sets may
+differ; their ordering, repetitions and grouping are not changed by inlaws.
+If an incomplete \code{nei} list fails inside mgcv's adjustment itself, it fails
+before any family hook and cannot receive the inlaws diagnostic. See the
+family compatibility vignette for route and version qualifications.
+}
+
 \examples{
 set.seed(12)
 d <- data.frame(time = runif(300))

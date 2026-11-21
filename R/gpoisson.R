@@ -3,14 +3,14 @@
 #' @description
 #' `r lifecycle::badge("experimental")`
 #'
-#' A GP-1 extended family for [mgcv::gam()], with a log link for the mean
-#' and one fixed or estimated global dispersion parameter.
+#' A GP-1 extended family for [mgcv::gam()] and [mgcv::bam()], with a log link
+#' for the mean and one fixed or estimated global dispersion parameter.
 #'
 #' @param theta The variance-to-mean ratio phi. `NULL` or zero estimates phi
 #'   starting at two; a positive value at least one fixes phi; a negative
 #'   value less than minus one estimates phi starting at `abs(theta)`.
 #' @param link Only `"log"` is supported.
-#' @return An `extended.family` object for `gam()`, including `rd`, `cdf`
+#' @return An `extended.family` object, including `rd`, `cdf`
 #'   and `qf` distribution callbacks.
 #' @details
 #' With `a = mu / sqrt(phi)` and `b = 1 - 1 / sqrt(phi)`, the probability
@@ -19,12 +19,17 @@
 #' estimated: phi > 1. Fixed `theta = 1` gives the exact Poisson family.
 #' Underdispersion and a dispersion linear predictor are not supported.
 #'
-#' Use `method = "REML"` or `"ML"`. The additional likelihood scale is
-#' fixed at one. `getTheta(TRUE)` returns phi; `getTheta()` returns
+#' `gam()` supports `method = "REML"`, `"ML"`, `"NCV"` and `"QNCV"`.
+#' `bam()` supports its extended-family selectors, including `"fREML"` and,
+#' with `discrete = TRUE`, `"fREML"` and `"NCV"`. Supply `scale = 1` to
+#' `bam()` so that `logLik()` treats the likelihood scale as fixed.
+#' `getTheta(TRUE)` returns phi. `getTheta()` returns
 #' `log(phi - 1)`, or `numeric(0)` for fixed Poisson (no nuisance parameter).
 #' Estimation approaches
 #' the Poisson boundary without automatically switching models; almost
 #' Poisson or underdispersed data can give weak dispersion identification.
+#' In `gam()`, NCV and QNCV can report an outer step failure with either
+#' fixed or estimated dispersion.
 #' In mgcv 1.9-4, ML can fail with a LAPACK error for entirely unpenalized
 #' models when individual observations have negative log-link curvature.
 #' This is an mgcv zero-column SVD limitation; use REML for such models.
@@ -34,9 +39,9 @@
 #' multiply likelihood contributions; they do not alter the distribution
 #' used for simulation or quantiles. Offsets have their usual log-mean
 #' interpretation. Deviance uses the saturated mean at fixed phi, which
-#' generally differs from y. Positive working information uses log-link
-#' observed curvature with a variance-based lower bound; observed
-#' likelihood derivatives remain exact (including the Poisson boundary).
+#' generally differs from y. The fitting callbacks use the positive expected
+#' information of the latent immigrant count as working information. It is
+#' exact at the Poisson boundary.
 #'
 #' Distribution callbacks condition on fitted parameters. The CDF is
 #' right-continuous and accepts `logp = TRUE`. Quantiles at probabilities
@@ -49,18 +54,11 @@
 #' @references Consul, P. C. and Jain, G. C. (1973). A generalization of the
 #'   Poisson distribution. Technometrics, 15, 791--799.
 #'   doi:10.1080/00401706.1973.10489112.
-#' @section Fitting routes and NCV limitations:
-#' REML and ML are supported in `gam()`; REML, ML and fREML in ordinary
-#' `bam()`; and fREML and NCV in discrete `bam()`. Discrete NCV requires
-#' mgcv >= 1.9-4 and optimizes a working-model criterion. Use `scale = 1`
-#' in `bam()` for absolute log-likelihood comparisons: mgcv 1.9-4 can
-#' otherwise mislabel the fixed external likelihood scale.
-#'
-#' With mgcv 1.9-4, `gam()` NCV and QNCV requests (also via `nei`
-#' during REML) are rejected for separate upstream numerical NCV issues.
-#' These restrictions remain after complete-case filtering. Support must be
-#' reassessed on later mgcv versions. Discrete `bam()` NCV uses
-#' a separate fitting route and remains available.
+#' @section NCV limitations:
+#' The extended-family `gam()` NCV and QNCV routes are unavailable with mgcv
+#' 1.9-4 due to upstream numerical issues. This restriction also applies to
+#' NCV requested via `nei` and remains after complete-case filtering.
+#' Discrete `bam()` NCV uses a separate working-model criterion.
 #'
 #' @template ncv-neighbourhoods-extended
 #' @export
@@ -123,25 +121,15 @@ gpoisson <- function(theta = NULL, link = "log") {
       ans$Dth[active] <- ans$Dth[active] + 2 * wa * sat[, 2]
       if (level > 1) ans$Dth2[active] <- ans$Dth2[active] + 2 * wa * sat[, 3]
     }
-    # Positive variance-based working information; observed derivatives stay exact.
-    phi <- 1 + exp(theta)
-    ans$EDmu2[active] <- 2 * wa / (phi * ma)
+    # The latent Poisson immigrant count has mean c*mu. Its information is
+    # positive and bounds the observed-data Fisher information from above.
+    # Ordinary bam uses this working curvature to form its IRLS response.
+    p <- .gpoisson_parameters(theta)
+    info <- 2 * wa * p$c / ma
+    ans$EDmu2[active] <- info
     if (level > 0) {
-      ans$EDmu3[active] <- -2 * wa / (phi * ma^2)
-      ans$EDmu2th[active] <- -ans$EDmu2[active] * stats::plogis(theta)
-    }
-    # Safeguard variance information with observed log-link curvature.
-    # Omitting the score correction here can destabilize bam.
-    observed <- ans$Dmu2[active] + ans$Dmu[active] / ma
-    take <- observed > ans$EDmu2[active]
-    ans$EDmu2[active] <- pmax(observed, ans$EDmu2[active])
-    if (level > 0) {
-      ans$EDmu3[which(active)[take]] <- (ans$Dmu3[active] - 2 * ans$Dmu[active] / ma^2)[take]
-      ans$EDmu2th[which(active)[take]] <- (ans$Dmu2th[active] + ans$Dmuth[active] / ma)[take]
-    }
-    if (theta == -Inf) {
-      ans$EDmu2[active] <- 2 * wa / ma
-      if (level > 0) ans$EDmu3[active] <- -4 * wa / ma^2
+      ans$EDmu3[active] <- -2 * info / ma
+      ans$EDmu2th[active] <- -p$h * info / 2
     }
     ans
   }
@@ -190,7 +178,8 @@ gpoisson <- function(theta = NULL, link = "log") {
       }
       opt$objective
     }
-    list(null.deviance = null, deviance = sum(family$dev.resids(y, fitted, prior.weights)))
+    list(null.deviance = null,
+         deviance = sum(family$dev.resids(y, fitted, prior.weights)))
   }
   lk <- stats::make.link("log")
   family <- structure(list(family = "Generalized Poisson", link = "log",

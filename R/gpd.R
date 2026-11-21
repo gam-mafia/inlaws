@@ -28,7 +28,11 @@
 #' Fitted values and `predict(..., type = "response")` are matrices with
 #' columns for scale and shape (in that order), both on their natural scales. They are not
 #' conditional means. Link predictions are log scale and linked shape.
-#' Only `gam()` with ordinary model matrices is supported, not `bam()`.
+#' Fit with `gam()` and ordinary model matrices using REML, NCV or QNCV.
+#' Exact NCV requires the held-out excesses to lie in the support implied by
+#' their neighbourhood-deletion predictors. A trial fit outside that
+#' support has an infinite NCV score. QNCV uses a local quadratic
+#' approximation around the full-data predictors.
 #'
 #' The family includes `rd(mu, wt = NULL, scale = NULL)`,
 #' `qf(p, mu, wt = NULL, scale = NULL)` and
@@ -53,6 +57,7 @@
 #' `gpd()` is an alias for `gpdlss()`.
 #'
 #' @aliases gpd
+#' @template ncv-neighbourhoods
 #' @return An mgcv `general.family` object.
 #' @export
 #' @examples
@@ -85,7 +90,7 @@ gpdlss <- function(link = list("log", "logshift")) {
   family <- structure(list(
     family = "gpd", link = unlist(link), nlp = 2L,
     linfo = list(scale, shape), tri = mgcv::trind.generator(2),
-    ll = .gpd_ll, initialize.coef = .gpd_start,
+    ll = .gpd_ll, ncv = .inlaws_gamlss_ncv, initialize.coef = .gpd_start,
     initialize = expression({
       n <- rep(1, nobs)
       start <- family$initialize.coef(y, x, weights, offset, start, family)
@@ -99,7 +104,7 @@ gpdlss <- function(link = list("log", "logshift")) {
     d2link = 1, d3link = 1, d4link = 1, ls = 1,
     available.derivs = 2, discrete.ok = FALSE
   ), class = c("general.family", "extended.family", "family"))
-  .inlaws_diagnostic_family(family, "gpd")
+  .inlaws_ncv_family(.inlaws_diagnostic_family(family, "gpd"))
 }
 
 #' @rdname gpdlss
@@ -124,6 +129,7 @@ gpd <- gpdlss
 
 .gpd_log_link <- function() {
   link <- stats::make.link("log")
+  link$linkinv <- link$mu.eta <- function(eta) exp(eta)
   link$d2link <- function(mu) -1 / mu^2
   link$d3link <- function(mu) 2 / mu^3
   link$d4link <- function(mu) -6 / mu^4
@@ -219,7 +225,7 @@ gpd <- gpdlss
                     d1b = 0, d2b = 0, Hp = NULL, rank = 0, fh = NULL,
                     D = NULL, eta = NULL, ncv = FALSE, sandwich = FALSE) {
   if (is.null(eta)) eta <- .gpd_eta(X, coef, offset)
-  if (is.null(wt)) wt <- rep(1, length(y))
+  wt <- rep_len(if (is.null(wt)) 1 else wt, length(y))
   rho <- eta[, 1L]
   xi <- family$linfo[[2L]]$linkinv(eta[, 2L])
   active <- wt > 0
@@ -231,24 +237,28 @@ gpd <- gpdlss
   valid <- is.finite(rho) & is.finite(sigma) & sigma > 0 & is.finite(xi) &
     is.finite(yy / sigma) & (1 + xi * (yy / sigma) > 0)
   if (family$link[2L] == "logshift") valid <- valid & (xi > -0.5)
-  if (!all(valid)) {
-    l0 <- rep(0, length(y)); l0[active & !valid] <- -Inf
-    return(list(l = -Inf, l0 = l0))
-  }
+  bad <- !valid
+  yy[bad] <- rho[bad] <- xi[bad] <- 0
   ord <- if (deriv == 0L) 0L else if (deriv == 1L) 2L else if (deriv < 4L) 3L else 4L
   ds <- .gpd_derivatives(yy, rho, xi, ord)
-  l0 <- ds$l0 * wt
-  if (!deriv) return(list(l = sum(l0), l0 = l0))
-  .gpd_gH(ds, X, wt, xi, eta, family, ord, deriv, d1b, d2b, fh, D, ncv, sandwich)
+  if (!deriv || (any(bad) && !ncv)) {
+    l0 <- ds$l0 * wt
+    l0[bad] <- -Inf
+    return(list(l = sum(l0), l0 = l0))
+  }
+  .gpd_gH(ds, X, wt, xi, eta, family, ord, deriv, d1b, d2b, fh, D,
+           ncv, sandwich, bad = bad)
 }
 
 # Derivatives are in log scale, natural tail shape and (if present) log kappa.
 .gpd_gH <- function(ds, X, wt, xi, eta, family, ord, deriv, d1b, d2b, fh, D,
-                    ncv, sandwich) {
+                    ncv, sandwich, bad = FALSE) {
   active <- wt > 0
   l0 <- ds$l0 * wt
+  l0[bad] <- -Inf
+  ret <- list(l = sum(l0), l0 = l0)
   sh <- family$linfo[[2L]]
-  es <- eta[, 2L]; es[!active] <- sh$linkfun(0)
+  es <- eta[, 2L]; es[!active | bad] <- sh$linkfun(0)
   # The first likelihood argument is already log scale, so its link here is
   # identity. Public linfo still maps log scale to the natural parameter sigma.
   ig1 <- cbind(1, sh$mu.eta(es))
@@ -267,26 +277,21 @@ gpd <- gpdlss
                           if (ord >= 4L) ds$l4 * wt else 0,
                           ig1, g2, g3, g4, tri$i2, tri$i3, tri$i4, deriv - 1L)
   jj <- attr(X, "lpi")
-  ret <- list()
-  if (!is.null(jj)) {
-    # The native trace-only path drops dimensions for singleton predictors.
-    # Contract the full Hessian derivative to support intercept-only blocks.
-    contracted <- deriv == 2L && any(lengths(jj) == 1L)
-    gh_deriv <- if (contracted) 2L else deriv - 1L
-    ret <- mgcv::gamlss.gH(X, jj, de$l1, de$l2, tri$i2,
-                          l3 = de$l3, i3 = tri$i3, l4 = de$l4, i4 = tri$i4,
-                          d1b = d1b, d2b = d2b, deriv = gh_deriv,
-                          fh = fh, D = D, sandwich = sandwich)
-    if (contracted) ret$d1H <- vapply(ret$d1H, function(z) sum(z * fh), numeric(1))
+  if (!is.null(jj) && !any(bad)) {
+    gh <- .inlaws_gamlss_gh(X, jj, de$l1, de$l2, tri$i2,
+      l3 = de$l3, i3 = tri$i3, l4 = de$l4, i4 = tri$i4,
+      d1b = d1b, d2b = d2b, deriv = deriv - 1L,
+      fh = fh, D = D, sandwich = sandwich)
+    ret <- c(ret, gh)
   }
   if (ncv) {
-    ret$l1 <- de$l1
-    ret$l2 <- de$l2
-    ret$l3 <- de$l3
-    if (ord >= 4L) ret$l4 <- de$l4
+    for (k in seq_len(ord)) {
+      name <- paste0("l", k)
+      ret[[name]] <- de[[name]]
+      ret[[name]][bad, ] <- NA_real_
+    }
+    if (ord < 3L) ret$l3 <- de$l3
   }
-  ret$l <- sum(l0)
-  ret$l0 <- l0
   ret
 }
 

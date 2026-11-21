@@ -10,53 +10,62 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
-This is a snapshot of **inlaws** 0.0.0.9000, based on the family
-implementations, help pages, and regression tests in `tests/`, reviewed with
-**mgcv** 1.9-4. The package requires mgcv >= 1.9-3; discrete `bam()` NCV
-requires mgcv >= 1.9-4. The Weibull entries were also reviewed with mgcv 1.9-3 and 1.9-5.
+The package requires **mgcv** 1.9-3 or later. The table reflects regression tests
+and targeted fitting checks on mgcv 1.9-3 through 1.9-5. **Tested** denotes a
+route exercised by the package regression suite. **Checked** denotes a route
+exercised on a smooth-model fixture. A dash denotes an unavailable route.
+The checks use free smoothing parameters and verify the criterion that actually ran.
 
-**Yes** denotes an implemented route covered by package regression tests;
-**No** denotes an unsupported route; **?** denotes a route that has not been
-validated, rather than a known failure. Method columns refer to smoothing
-parameter selection, not simply maximization of an unpenalized likelihood.
+| Family | Class | `gam()` REML / ML | `gam()` NCV / QNCV | Ordinary `bam()` REML / ML / fREML | Discrete `bam()` fREML / NCV |
+|:--|:--|:--|:--|:--|:--|
+| `betabinomial()` | General | Tested / — | Tested / Tested | — / — / — | — / — |
+| `betals()` | General | Tested / — | Tested / — | — / — / — | — / — |
+| `bgevlss()` | General | Tested / — | Tested / Tested | — / — / — | — / — |
+| `cgamma()` | Extended | Tested / Tested | Checked³ / Checked³ | Tested / Tested / Tested | Tested / Tested |
+| `cgammals()` | General | Tested / — | Tested / Tested | — / — / — | — / — |
+| `cgen_gammalss()` | General | Tested / — | Tested / Tested | — / — / — | — / — |
+| `clognormal()` | Extended | Tested / Tested | Tested³ / Checked³ | Tested / Tested / Tested | Tested / Tested |
+| `clognormalls()` | General | Tested / — | Tested / Tested | — / — / — | — / — |
+| `cmp()` | Extended | Tested / Tested | Checked³ / Checked³ | Tested / Tested / Tested | Tested / Tested |
+| `cmpls()` | General | Tested / — | Tested / Tested | — / — / — | — / — |
+| `cumulative_link()` | Extended | Tested / Tested | Tested / Checked | Tested / Tested / Tested | Tested / Tested |
+| `dirichlet()` | General | Tested / — | Tested / Tested | — / — / — | — / — |
+| `dirmult()` | General | Tested (EFS) / — | — / — | — / — / — | — / — |
+| `egpdlss()` | General | Tested / — | Tested / Tested | — / — / — | — / — |
+| `gen_gammalss()` | General | Tested / — | Tested / Tested | — / — / — | — / — |
+| `gpdlss()` | General | Tested / — | Tested¹ / Tested | — / — / — | — / — |
+| `gpoisson()` | Extended | Tested / Tested | Tested² ³ / Tested² ³ | Tested / Tested / Tested | Tested / Tested |
+| `hyper_poissonls()` | General | Tested / — | Tested / Tested | — / — / — | — / — |
+| `log_logistic()` | Extended | Tested / Tested | Tested / Checked | Tested / Tested / Tested | Tested / Tested |
+| `log_logisticls()` | General | Tested / — | Tested / Tested | — / — / — | — / — |
+| `nbls()` | General | Tested / — | Tested / Tested | — / — / — | — / — |
+| `ordbeta()` | Extended | Tested / Tested | Tested / Tested | Tested / Tested / Tested | Tested / Tested |
+| `pig()` | Extended | Tested / Tested | Tested / Checked | Tested / Tested / Tested | Tested / Tested |
+| `pigls()` | General | Tested / — | Tested / Tested | — / — / — | — / — |
+| `scatlss()` | General | Tested / — | Tested / Tested | — / — / — | — / — |
+| `weibull()` | Extended | Tested / Tested | Tested / Tested | Tested / Tested / Tested | Tested / Tested |
+| `weibulls()` | General | Tested / — | Tested / Tested | — / — / — | — / — |
+| `zanb()` | General | Tested / — | Tested / Tested | — / — / — | — / — |
+| `zinb()` | General | Tested / — | Tested / Tested | — / — / — | — / — |
+| `zoibetals()` | General | Tested (EFS) / — | — / — | — / — / — | — / — |
 
-| Family | Class | `gam()` REML | `gam()` ML | `gam()` NCV | `bam()` REML / ML | `bam()` fREML | Discrete `bam()` fREML / NCV |
-|:--|:--|:--:|:--:|:--:|:--:|:--:|:--:|
-| `betabinomial()` | General | Yes | No | Yes | No / No | No | No / No |
-| `betals()` | General | Yes | No | Yes | No / No | No | No / No |
-| `zoibetals()` | General | Yes | No | No | No / No | No | No / No |
-| `cgamma()` | Extended | Yes | Yes | No | Yes / Yes | Yes | Yes / Yes |
-| `cgammals()` | General | Yes | No | Yes | No / No | No | No / No |
-| `cgen_gammalss()` | General | Yes | No | Yes | No / No | No | No / No |
-| `clognormal()` | Extended | Yes | Yes | No | Yes / Yes | Yes | Yes / Yes |
-| `clognormalls()` | General | Yes | No | Yes | No / No | No | No / No |
-| `cmp()` | Extended | Yes | Yes | No | Yes / Yes | Yes | Yes / Yes |
-| `cmpls()` | General | Yes | No | Yes | No / No | No | No / No |
-| `hyper_poissonls()` | General | Yes | No | Yes | No / No | No | No / No |
-| `dirichlet()` | General | Yes | No | No | No / No | No | No / No |
-| `dirmult()` | General | Yes | No | No | No / No | No | No / No |
-| `gpoisson()` | Extended | Yes | Yes | No | Yes / Yes | Yes | Yes / Yes |
-| `gen_gammalss()` | General | Yes | No | Yes | No / No | No | No / No |
-| `scatlss()` | General | Yes | No | Yes | No / No | No | No / No |
-| `gpdlss()` | General | Yes | No | No | No / No | No | No / No |
-| `egpdlss()` | General | Yes | No | Yes | No / No | No | No / No |
-| `bgevlss()` | General | Yes | No | Yes | No / No | No | No / No |
-| `pig()` | Extended | Yes | Yes | Yes | Yes / Yes | Yes | Yes / Yes |
-| `pigls()` | General | Yes | No | Yes | No / No | No | No / No |
-| `log_logistic()` | Extended | Yes | Yes | Yes | Yes / Yes | Yes | Yes / Yes |
-| `log_logisticls()` | General | Yes | No | Yes | No / No | No | No / No |
-| `weibull()` | Extended | Yes | Yes | Yes | Yes / Yes | Yes | Yes / Yes |
-| `weibulls()` | General | Yes | No | Yes | No / No | No | No / No |
-| `nbls()` | General | Yes | No | No | No / No | No | No / No |
-| `cumulative_link()` | Extended | Yes | Yes | Yes | Yes / Yes | Yes | Yes / Yes |
-| `ordbeta()` | Extended | Yes | Yes | No | No / No | No | No / No |
-| `zanb()` | General | Yes | No | Yes | No / No | No | No / No |
-| `zinb()` | General | Yes | No | Yes | No / No | No | No / No |
+¹ An NCV deletion for `gpdlss()` can move a held-out excess outside the fitted
+support. Such a trial has infinite score. QNCV uses a local quadratic
+approximation around the full-data predictors.
 
-The ordinary `bam()` columns mean `discrete = FALSE`. The final column means
-`discrete = TRUE`: discretization is available with fREML and NCV, not ML or
-ordinary REML. `gam()` does not offer fREML. Support for an extended family
-does not by itself establish that every fitting route works.
+² Estimated dispersion can make the outer NCV or QNCV optimization sensitive
+to the dataset for `gpoisson()`. Check `fit$outer.info$conv` as well as
+`fit$converged` and any warnings.
+
+³ These four single-predictor families reject GAM NCV and QNCV on mgcv 1.9-4.
+These entries are for mgcv 1.9-5. See the version qualification below.
+
+Ordinary `bam()` also accepts `GCV.Cp`, `GACV.Cp`, `P-REML`, and `P-ML`.
+At fixed unit scale the first two use UBRE and the Pearson likelihood
+criteria reduce to REML and ML. Use `scale = 1` for absolute likelihood
+comparisons. Check `fit$method` and `fit$dinfo` to see which criterion
+and fitter ran. Ordinary BAM requests for NCV enable discretization.
+Discrete fitting is available for fREML and NCV, including NCV on mgcv 1.9-3.
 
 ## Extended generalized Pareto optimizers
 
@@ -121,37 +130,36 @@ and the criterion, including the QNCV flag.
   grouped neighbourhoods; QNCV and shared coefficients are unsupported.
   Response columns are `mu`, `phi`, with variance `mu * (1 - mu) / (1 + phi)`.
   Tests are in `tests/betals.R` and `tests/betals-derivatives.R`.
-- **General families:** mgcv does not support these in `bam()`. In mgcv 1.9-4,
-  `gam()` changes an ML request to REML for these families. It also resets NCV
-  to REML (with a warning) when the family lacks an NCV callback, as for
-  `gpdlss()`. A returned model therefore does not prove the requested method ran;
-  inspect `fit$method`.
+- **General families:** mgcv fits these families with `gam()`. An ML
+  request falls back to REML. Requests for GCV, GACV, Pearson
+  likelihood criteria, or fREML also fall back to REML for the families
+  above. Check the criterion in `fit$method`.
 - **Optimizers:** `zoibetals()` and `dirmult()` use extended Fellner--Schall (`optimizer =
   "efs"`), selected automatically; Newton/BFGS smoothing optimization is not
   implemented. `betabinomial()` has tested REML Newton and BFGS routes;
   `nbls()`, `zinb()`, and `zanb()` also have tested EFS routes. NCV for
   `zinb()` and `zanb()` uses BFGS, not EFS.
-- **NCV and QNCV:** NCV is approximate neighbourhood cross-validation.
-  `betabinomial()` supports row-level neighbourhoods, not automatic
-  leave-one-trial-out validation of aggregated binomial counts, and explicitly
-  rejects QNCV. `zinb()`, `zanb()`, `scatlss()`, `gen_gammalss()`,
-  `cgen_gammalss()`, `egpdlss()` and `bgevlss()` support NCV and QNCV. QNCV has not
-  been validated for the other NCV-capable families listed here. Discrete
-  `bam()` NCV uses the working linear model, so its optimum need not match
-  `gam()` NCV.
-- **mgcv 1.9-4 GAM NCV restriction:** `cgamma()`, `clognormal()`, `cmp()`
-  and `gpoisson()` reject `gam()` NCV and QNCV requests, including `nei`
-  during REML, for independent upstream numerical NCV issues. The two censored
-  families additionally lose censoring information during held-out response
-  subsetting. Complete-case filtering does not lift these restrictions.
-  The table reflects mgcv 1.9-4; discrete `bam()` NCV remains available,
-  subject to the shared preprocessing qualification below. Later mgcv versions
-  require reassessment rather than an assumption that these issues are fixed.
+- **NCV and QNCV:** NCV uses approximate neighbourhood deletions.
+  `betabinomial()` deletes entire rows of aggregated binomial counts.
+  The general-family scores and gradients align offsets with prediction
+  rows. Discrete `bam()` NCV uses the working linear model, so its
+  optimum can differ from `gam()` NCV.
+- **mgcv 1.9-4 GAM NCV restriction:** `cgamma()`, `clognormal()`, `cmp()`,
+  and `gpoisson()` reject GAM NCV, QNCV, and REML with `nei` on this version
+  because of independent upstream numerical issues. The two censored
+  families also lose censoring information in held-out response subsetting.
+  In mgcv 1.9-3, the native extended-family GAM NCV code can omit held-out
+  offsets and lose censoring attributes. The four-family GAM NCV/QNCV
+  entries refer to mgcv 1.9-5.
+  On mgcv 1.9-5 the methods run on smooth-model fixtures. Estimated
+  generalized Poisson dispersion can still give a step-failure diagnostic on
+  some datasets. Discrete BAM NCV is subject to the preprocessing
+  qualification below.
 - **Fixed likelihood scale:** use `scale = 1` for absolute `bam()` likelihood
   comparisons with these four extended families: mgcv 1.9-4 can mislabel the
   default fixed external scale. This is separate from estimated dispersion.
 - **Censored location-scale families:** `cgammals()` and `clognormalls()`
-  use two formulae and support REML and NCV, including grouped neighbourhoods
+  use two formulae and support REML, NCV, and QNCV, including grouped neighbourhoods
   and offsets in both predictors. `cgammals()` returns mean and dispersion
   (`mu`, `phi`), with variance `phi * mu^2`; `clognormalls()` returns mean and
   log-response standard deviation (`mu`, `sigma`). Both use ordinary log links
@@ -161,14 +169,13 @@ and the criterion, including the QNCV flag.
   models can hit a native solver limitation with `gpoisson()` or the cauchit link
   of `cumulative_link()`. Smooth-model ML is supported; see the family help pages
   for alternatives.
-- **Poisson inverse Gaussian predictors:** `pigls()` models mean and dispersion
-  with two log-linked predictors and returns `mu`, `theta`, with variance
-  `mu + theta * mu^2`. It supports separate coefficient blocks and offsets in
-  both predictors. REML uses outer Newton or BFGS and NCV uses BFGS; EFS and
-  QNCV are outside its supported scope. Constant dispersion via `~ 1` need
+- **Poisson inverse Gaussian predictors:** `pigls()` uses separate
+  log-linked predictors for mean and dispersion and returns `mu` and
+  `theta`, with variance `mu + theta * mu^2`. REML uses outer Newton or
+  BFGS and NCV and QNCV use BFGS. A constant dispersion predictor need
   not reproduce REML estimates from `pig()`.
 - **CMP predictors:** `cmpls()` models the exact mean and dispersion with
-  separate log-link predictors in `gam()`, with REML and NCV support.
+  separate log-link predictors in `gam()`, with REML, NCV, and QNCV support.
   Use two formulae; `~ 1` estimates constant dispersion. See `?cmpls` for
   numerical limits and supported prediction and distribution callbacks.
 - **Weibull predictors:** Both families model the arithmetic mean of a positive,
@@ -286,7 +293,6 @@ and the criterion, including the QNCV flag.
   `inst/maths/family-prediction-audit.md` in the package source.
 - **Scope:** `cmp()` is a pure-R reference implementation whose large-data
   performance is unvalidated. No family here has a supported `gamm()` route.
-  GCV/UBRE and other unlisted smoothing criteria are outside this summary.
 
 ## Explicit neighbourhoods and missing observations
 
@@ -301,7 +307,8 @@ scores/offsets and unpenalized jackknife covariance.
 
 `betabinomial()`, `betals()`, `cgammals()`, `clognormalls()`, `cmpls()`,
 `pigls()`, `log_logisticls()`, `gen_gammalss()`, `cgen_gammalss()`, `scatlss()`,
-`egpdlss()`, `zinb()`, `zanb()`, `weibulls()` and `bgevlss()` install a shared
+`egpdlss()`, `zinb()`, `zanb()`, `weibulls()`, `bgevlss()`, `gpdlss()`,
+`dirichlet()`, `nbls()`, and `hyper_poissonls()` install a shared
 check in the `gam()` general-family `presetup` hook.
 It rejects inconsistent adjusted neighbourhoods before upstream validation
 and numerical NCV, including explicit NCV, QNCV and `nei` during REML. Each

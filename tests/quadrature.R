@@ -1,4 +1,4 @@
-library(inlaws)
+library("inlaws")
 quadrature <- getFromNamespace(".gauss_legendre", "inlaws")
 
 # The n-point rule integrates polynomials through degree 2*n - 1 exactly.

@@ -60,7 +60,7 @@ A 100-observation estimated-dispersion REML GAM took approximately 3.7 seconds
 on the validation machine. Reproduction:
 
 ```r
-library(inlaws)
+library("inlaws")
 set.seed(24)
 x <- runif(100)
 off <- log(runif(100, 0.5, 2))
@@ -74,19 +74,29 @@ b$family$getTheta(TRUE) # about 2.039; total EDF about 5.463
 Runtime depends on support width, sample size, iterations and hardware. This
 is a correctness-oriented R reference, not a large-data performance claim.
 
+## Additional fitting routes
+
+On R 4.6.2 with mgcv 1.9-5, smooth models with fixed and estimated dispersion
+were checked with `gam()` using REML, ML, NCV and QNCV, with ordinary `bam()`
+using fREML, REML, ML, P-REML, P-ML, GCV.Cp and GACV.Cp, and with discrete
+`bam()` using fREML and NCV. With fixed scale, GCV.Cp selects UBRE. The checks
+compared the reported log likelihood and deviance with calculations at the
+fitted mean and dispersion. Both `bam()` routes use `scale = 1` because mgcv's
+default can mark the fixed likelihood scale as estimated in `logLik()`.
+
+The base-R tests also check that both `bam()` routes isolate the family
+template and retain earlier fits, and that a null model without a mean
+intercept retains only the offset on the linear predictor scale.
+
 ## Known limitations
 
-Only REML is the supported smoothing-selection interface. A default-start
-intercept-only ML fit on an underdispersed sample reached a trial nu near 23
+A default-start intercept-only ML fit on an underdispersed sample reached a trial nu near 23
 with negative individual observed curvature, then failed in mgcv's
 ML-specific BLAS/LAPACK path (DGESDD error -10), despite finite family
 values and derivatives. The REML fit and ML fits started closer to the
-solution succeeded. No workaround that changes the likelihood or its
-curvature is used. ML and other optimisation methods require further
-validation before being advertised.
+solution succeeded.
 
-bam(), varying dispersion, additional links, asymptotic approximations and
-compiled acceleration are deferred. Summation limits fail explicitly.
+Large-data performance remains unverified. Summation limits fail explicitly.
 CDFs and quantiles use the normalised finite support, so extreme-tail
 accuracy is limited by the summation tolerance. All-zero positive-weight
 responses have no finite log-mean fit and are rejected.

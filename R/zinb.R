@@ -97,7 +97,7 @@ zanb <- function(link = list("log", "logit", "log")) .zinb_family(link, TRUE)
         colnames(object$fitted.values) <- c("mu", "p", "theta")
         object$null.deviance <- object$family$null.deviance(object, G$offset)
       }),
-      residuals = .zinb_residuals, ncv = .zinb_ncv, predict = .zinb_predict,
+      residuals = .zinb_residuals, ncv = .inlaws_gamlss_ncv, predict = .zinb_predict,
       null.deviance = .zinb_null,
       sandwich = function(y, X, coef, wt, family, offset = NULL) {
         family$ll(y, X, coef, wt, family, offset = offset, deriv = 1, sandwich = TRUE)$lbb
@@ -256,10 +256,16 @@ zanb <- function(link = list("log", "logit", "log")) .zinb_family(link, TRUE)
   nb <- .zinb_nbjet(y, eta[, 1], eta[, 3], s, strip = hurdle)
   z <- y == 0
   if (!hurdle) {
-    # log[(1-p)+p*q0] = log(1-p)+softplus(logit(p)+log(q0)).
+    # Add the zero masses on the log scale without canceling the logit.
     q <- .zinb_nbjet(rep(0, length(y)), eta[, 1], eta[, 3], s)
     out <- logp + nb
-    mix <- logabs + .zinb_jsoftplus(b + q, s)
+    present <- logp + q
+    larger <- which(present[, 1L] > logabs[, 1L])
+    high <- logabs
+    low <- present
+    high[larger, ] <- present[larger, , drop = FALSE]
+    low[larger, ] <- logabs[larger, , drop = FALSE]
+    mix <- high + .zinb_jsoftplus(low - high, s)
     out[z, ] <- mix[z, , drop = FALSE]
   } else {
     # log(1-q0) = log(mu) + log(log1p(r)/r) + h(a),
@@ -335,14 +341,12 @@ zanb <- function(link = list("log", "logit", "log")) .zinb_family(link, TRUE)
   de <- lapply(de, function(x) x * wt)
   ret <- list()
   if (deriv && !is.null(jj) && !supplied_eta) {
-    shared <- deriv == 4 && anyDuplicated(unlist(jj)) > 0
     tri <- family$tri
-    ret <- mgcv::gamlss.gH(X, jj, de$l1, de$l2, tri$i2,
+    ret <- .inlaws_gamlss_gh(X, jj, de$l1, de$l2, tri$i2,
       l3 = de$l3, l4 = de$l4,
-      i3 = tri$i3, i4 = tri$i4, d1b = d1b, d2b = d2b, deriv = if (shared) 2L else deriv - 1L,
+      i3 = tri$i3, i4 = tri$i4, d1b = d1b, d2b = d2b, deriv = deriv - 1L,
       fh = fh, D = D, sandwich = sandwich
     )
-    if (shared) ret$trHid2H <- .nbls_shared_trace(X, jj, de, tri, d1b, d2b, fh, D)
   }
   if (ncv) ret[c("l1", "l2", "l3")] <- de[c("l1", "l2", "l3")]
   ret$l0 <- de$l0
@@ -390,98 +394,26 @@ zanb <- function(link = list("log", "logit", "log")) .zinb_family(link, TRUE)
   ans
 }
 
-# Use mgcv's compiled deletion updates, but assemble the score locally:
-# upstream QNCV assumes full-data prediction ordering and omits base offsets.
-.zinb_ncv <- function(X, y, wt, nei, beta, family, llf, H = NULL, Hi = NULL, R = NULL,
-                      offset = NULL, dH = NULL, db = NULL, deriv = FALSE, nt = 1) {
-  if (is.null(wt)) wt <- rep(1, length(y))
-  n <- length(y)
-  jj <- attr(X, "lpi")
-  m <- length(nei$d)
-  off <- lapply(1:3, function(j) {
-    if (length(offset) >= j && !is.null(offset[[j]])) {
-      rep_len(offset[[j]], n)
-    } else {
-      numeric(n)
-    }
-  })
-  f <- family
-  f$qapprox <- FALSE
-  lf <- llf
-  lf$gamma <- 1
-  native <- utils::getFromNamespace("gamlss.ncv", "mgcv")
-  ret <- native(X, y, wt, nei, beta, f, lf,
-    H = H, Hi = Hi, R = R, offset = off,
-    dH = dH, db = db, deriv = deriv, nt = nt
-  )
-  ecv <- attr(ret$NCV, "eta.cv")
-  dcv <- attr(ret$NCV, "deta.cv")
-  eta <- sapply(1:3, function(j) drop(X[, jj[[j]], drop = FALSE] %*% beta[jj[[j]]]) + off[[j]])
-  base <- family$ll(y, X, beta, wt, family, eta = eta, deriv = if (deriv > 0) 3 else 1, ncv = TRUE)
-  ix <- nei$d
-  gamma <- llf$gamma
-  if (is.null(gamma)) gamma <- 1
-  score0 <- -sum(base$l0[ix])
-  delta <- ecv - eta[ix, , drop = FALSE]
-  tri <- family$tri
-  if (isTRUE(family$qapprox)) {
-    Hd <- matrix(0, m, 3)
-    for (j in 1:3) {
-      for (k in 1:3) {
-        Hd[, j] <- Hd[, j] + base$l2[ix, tri$i2[j, k]] * delta[, k]
-      }
-    }
-    score <- score0 - gamma * sum(base$l1[ix, , drop = FALSE] * delta + .5 * Hd * delta)
-  } else {
-    cv <- family$ll(y[ix], X[ix, , drop = FALSE], beta, wt[ix], family, eta = ecv, deriv = 1, ncv = TRUE)
-    score <- -gamma * cv$l + (1 - gamma) * score0
-  }
-  grad <- Vg <- NULL
-  if (deriv > 0) {
-    ns <- ncol(db)
-    g <- matrix(0, m, ns)
-    d0 <- lapply(1:3, function(j) X[ix, jj[[j]], drop = FALSE] %*% db[jj[[j]], , drop = FALSE])
-    for (j in 1:3) {
-      dc <- dcv[seq_len(m) + (j - 1L) * m, , drop = FALSE]
-      g <- g - (1 - gamma) * base$l1[ix, j] * d0[[j]]
-      if (isTRUE(family$qapprox)) {
-        g <- g - gamma * (base$l1[ix, j] + Hd[, j]) * dc
-        td <- numeric(m)
-        for (k in 1:3) {
-          for (l in 1:3) {
-            td <- td + base$l3[ix, tri$i3[j, k, l]] * delta[, k] * delta[, l]
-          }
-        }
-        g <- g - .5 * gamma * td * d0[[j]]
-      } else {
-        g <- g - gamma * cv$l1[, j] * dc
-      }
-    }
-    grad <- colSums(g)
-    Vg <- crossprod(g)
-  }
-  attr(score, "eta.cv") <- ecv
-  if (deriv != 0) attr(score, "deta.cv") <- dcv
-  list(NCV = score, NCV1 = grad, error = ret$error, Vg = Vg)
-}
-
 .zinb_logpositive <- function(mu, theta) log(-expm1(-theta * log1p(mu / theta)))
 .zinb_quantile <- function(p, mu, hurdle) {
   n <- nrow(mu)
   p <- rep_len(p, n)
   prob <- mu[, 2]
-  lp <- if (hurdle) .zinb_logpositive(mu[, 1], mu[, 3]) else rep(0, n)
-  tail <- log1p(-p) - log(prob) + lp
+  missing <- is.na(p) | rowSums(is.na(mu)) > 0L
+  invalid <- !missing & (p < 0 | p > 1)
   out <- numeric(n)
-  use <- prob > 0 & !is.na(p) & p > 0
+  rows <- which(!missing & !invalid & prob > 0 & p > 0)
+  threshold <- .zinb_logpositive(mu[rows, 1], mu[rows, 3])
+  tail <- log1p(-p[rows]) - log(prob[rows])
+  if (hurdle) tail <- tail + threshold
   # Tail probabilities >= P(N>0) correspond to the atom at zero.
-  threshold <- .zinb_logpositive(mu[, 1], mu[, 3])
-  use <- use & tail < threshold
-  out[use] <- stats::qnbinom(tail[use],
-    mu = mu[use, 1], size = mu[use, 3],
+  use <- which(tail < threshold)
+  out[rows[use]] <- stats::qnbinom(tail[use],
+    mu = mu[rows[use], 1], size = mu[rows[use], 3],
     lower.tail = FALSE, log.p = TRUE
   )
-  out[p < 0 | p > 1 | is.na(p)] <- NaN
+  out[missing] <- NA_real_
+  out[invalid | is.na(p)] <- NaN
   out
 }
 .zinb_cdf <- function(q, mu, hurdle, logp = FALSE) {
@@ -525,7 +457,7 @@ zanb <- function(link = list("log", "logit", "log")) .zinb_family(link, TRUE)
   }
   out
 }
-.zinb_residuals <- function(object, type = c("deviance", "pearson", "response")) {
+.zinb_residuals <- function(object, type = c("deviance", "pearson", "response", "scaled.pearson")) {
   type <- match.arg(type)
   mu <- object$fitted.values
   w <- object$prior.weights
@@ -534,7 +466,7 @@ zanb <- function(link = list("log", "logit", "log")) .zinb_family(link, TRUE)
   if (type == "response") {
     return(r)
   }
-  if (type == "pearson") {
+  if (type %in% c("pearson", "scaled.pearson")) {
     ans <- numeric(length(r))
     ii <- w > 0
     ans[ii] <- sqrt(w[ii]) * r[ii] / sqrt(mom$variance[ii])

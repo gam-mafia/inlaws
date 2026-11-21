@@ -90,6 +90,7 @@ for (link in c("identity", "logshift")) {
 }
 
 fam <- gpdlss()
+stopifnot(identical(gpd, gpdlss))
 stopifnot(inherits(fam, "general.family"), fam$nlp == 2L,
           is.function(fam$cdf), is.function(fam$qf), is.function(fam$rd))
 for (bad in list("log", c("identity", "identity"), c("log", "log"),
@@ -217,4 +218,48 @@ near(fam$cdf(1e308, matrix(c(1, 10000), 1)),
      -expm1(-(log(10000) + log(1e308)) / 10000))
 near(log(fam$qf(.9, matrix(c(1, -1e308), 1))), -log(1e308))
 near(log(fam$cdf(1e-200, matrix(c(1, 1e-308), 1))), -200 * log(10))
+
+# Check the fourth-order REML trace when two predictors share coefficients.
+set.seed(42)
+XX <- matrix(rnorm(60), 15L)
+attr(XX, "lpi") <- list(1:2, 2:4)
+yy <- seq(.3, 1.5, length.out = nrow(XX))
+beta <- c(.1, -.2, .3, .6)
+d1b <- matrix(c(.1, .3, .2, .15), ncol = 1L)
+d2b <- matrix(c(.1, .2, .07, .05), ncol = 1L)
+weights <- rep(1, length(yy))
+tr <- function(h) {
+  b <- beta + drop(h * d1b + h^2 * d2b / 2)
+  sum(diag(fam$ll(yy, XX, b, weights, fam, deriv = 1)$lbb))
+}
+h <- 2e-4
+actual <- fam$ll(yy, XX, beta, weights, fam, deriv = 4, d1b = d1b, d2b = d2b,
+                 fh = structure(diag(4), pivot = 1:4), D = rep(1, 4))$trHid2H
+near(actual, (tr(h) + tr(-h) - 2 * tr(0)) / h^2, 1e-6)
+
+# Changing response units changes fitted scales and delta-method errors.
+set.seed(7)
+small <- data.frame(x = runif(200))
+small$y <- fam$rd(cbind(exp(-50 + .7 * sin(small$x)), .1))
+fit <- gam(list(y ~ x, ~ 1), data = small, family = fam, method = "REML")
+pr <- predict(fit, type = "response", se.fit = TRUE)
+link <- predict(fit, type = "link", se.fit = TRUE)
+near(pr$fit[, 1] / fitted(fit)[, 1], rep(1, nrow(small)))
+near(pr$se.fit[, 1] / (pr$fit[, 1] * link$se.fit[, 1]), rep(1, nrow(small)))
+
+# Observe held-out support failures without losing valid rows or offsets.
+direct_eta <- cbind(log(c(.1, .9)), rep(log(.1), 2))
+direct <- fam$ll(c(1, 1), X = NULL, coef = NULL, wt = c(1, 1),
+                 family = fam, eta = direct_eta, deriv = 1, ncv = TRUE)
+stopifnot(identical(direct$l0[1], -Inf), all(is.na(direct$l1[1, ])),
+          is.finite(direct$l0[2]), all(is.finite(direct$l1[2, ])))
+near(direct$l0[2], logdensity(1, .9, -.4))
+set.seed(918)
+cvdat <- data.frame(x = runif(150), o1 = rnorm(150, sd = .04), o2 = rnorm(150, sd = .04))
+cvdat$y <- fam$rd(cbind(exp(.5 * sin(6 * cvdat$x) + cvdat$o1), exp(log(.7) + cvdat$o2) - .5))
+forms <- list(y ~ s(x, k = 6) + offset(o1), ~ 1 + offset(o2))
+for (method in c("NCV", "QNCV")) {
+  cvfit <- gam(forms, data = cvdat, family = fam, method = method)
+  stopifnot(cvfit$method == method, is.finite(cvfit$gcv.ubre), cvfit$sp > 0)
+}
 cat("gpd derivatives, fits, distribution helpers and diagnostics: passed\n")

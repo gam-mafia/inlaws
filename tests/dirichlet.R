@@ -1,4 +1,4 @@
-library(inlaws)
+library("inlaws")
 
 near <- function(a, b, tol = 1e-6) {
   stopifnot(identical(dim(a), dim(b)),
@@ -62,6 +62,12 @@ for (phi in c(.001, 1, 1e4)) {
   z <- derivatives(matrix(c(1e-8, .3, .7 - 1e-8), 1), e, 1, jet_indices(3), 4)
   stopifnot(all(is.finite(unlist(z))))
 }
+# The tiny shape contributes log(alpha) plus negligible corrections.
+tiny <- derivatives(matrix(c(.3, .3, .4), 1), matrix(c(0, -200, 2), 1),
+                    1, jet_indices(3), 4L)
+stopifnot(all(is.finite(unlist(tiny))))
+near(tiny$l1[1, 2], 1)
+near(tiny$l4[1, mgcv::trind.generator(3)$i4[2, 2, 2, 2]], 0)
 z <- derivatives(y, rbind(c(.5, -.7, 2), c(1000, -1000, 1000)),
                  c(1, 0), jet_indices(3), 4)
 stopifnot(all(is.finite(unlist(z))), all(z$l1[2, ] == 0))
@@ -144,6 +150,25 @@ shared <- gam(list(y ~ 1, ~ 1, ~ 1, 1 + 2 ~ s(x, k = 5) - 1),
 stopifnot(all(is.finite(coef(shared))), all(is.finite(vcov(shared, sandwich = TRUE))))
 ps <- predict(shared, newdata = nd, type = "response", se.fit = TRUE)
 stopifnot(identical(dim(ps$fit), c(3L, 3L)), all(is.finite(ps$se.fit)))
+
+# Trace of the twice differentiated coefficient Hessian with overlapping
+# predictor blocks. A finite difference on the assembled Hessian exercises
+# the matrix contraction independently of the observation derivative tests.
+set.seed(42)
+X <- matrix(rnorm(60), 15L)
+attr(X, "lpi") <- list(1:2, 2:3, 3:4)
+yy <- matrix(rgamma(45, 2), 15L)
+yy <- yy / rowSums(yy)
+beta <- c(.1, -.2, .3, .6)
+d1b <- matrix(c(.1, .3, .2, .15), 4L)
+d2b <- matrix(c(.1, .2, .07, .05), 4L)
+f <- dirichlet(2)
+ll <- function(t, order) f$ll(yy, X, beta + d1b[, 1L] * t + d2b[, 1L] * t^2 / 2,
+  rep(1, nrow(yy)), f, deriv = order, d1b = d1b, d2b = d2b,
+  fh = eigen(diag(4), symmetric = TRUE), D = rep(1, 4))
+h <- 2e-4
+near(ll(0, 4)$trHid2H, sum(diag(ll(h, 1)$lbb - 2 * ll(0, 1)$lbb + ll(-h, 1)$lbb)) / h^2,
+     1e-5)
 
 # Missing response components remove whole rows; na.exclude restores rows.
 dm <- dat; dm$y[2, 2] <- NA; dm$x[3] <- NA

@@ -1,4 +1,4 @@
-library(inlaws)
+library("inlaws")
 
 near <- function(x, y, tol = 5e-5) {
   stopifnot(length(x) == length(y), all(is.finite(x)), all(is.finite(y)),

@@ -28,6 +28,8 @@ log likelihoods on the actual prediction indices, including repeated or
 reordered indices. The derivative uses the corresponding predictor
 sensitivities; this is tested against finite differences in log smoothing
 parameters, as are the REML gradient and Hessian.
+QNCV uses the same deletion updates with a quadratic likelihood expansion
+around the full-fit predictors.
 
 Prior weights multiply all log likelihood derivatives. Zero-weight rows
 have zero contribution, including when their predictors overflow.

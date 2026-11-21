@@ -66,9 +66,11 @@
     converged <- FALSE
     if (series) {
       term <- total <- one
-      for (j in seq_len(10000L)) {
+      # Near x = k the series can require tens of thousands of terms.
+      for (j in seq_len(50000L)) {
         term <- .cg_mul(term, .cg_mul(X, .cg_inv(K + j * one)))
         total <- total + term
+        if (any(!is.finite(total))) break
         if (all(abs(term) < 2e-14 * (1 + abs(total)))) {
           converged <- TRUE
           break
@@ -87,6 +89,7 @@
         c <- b + .cg_mul(a, .cg_inv(c))
         delta <- .cg_mul(c, d)
         h <- .cg_mul(h, delta)
+        if (any(!is.finite(h))) break
         if (all(abs(delta - one) < 2e-14)) {
           converged <- TRUE
           break
@@ -135,8 +138,24 @@
   list(y = y, censor = censor, exact = exact, lo = lo, hi = hi)
 }
 
+# Replace zero-weight rows before evaluating incomplete-gamma derivatives.
+.cg_weighted_response <- function(y, zero) {
+  if (!any(zero)) return(y)
+  r <- .cg_response(y)
+  r$y[zero] <- r$censor[zero] <- 1
+  structure(r$y, censor = r$censor)
+}
+
 .cg_narrow <- function(lo, hi, mu, k) {
-  is.finite(hi) & lo > 0 & (hi - lo) < 1e-4 * lo & k * (hi - lo) / mu < 1
+  width <- hi - lo
+  narrow <- is.finite(hi) & lo > 0 & width < 1e-4 * lo
+  d <- width[narrow] / lo[narrow]
+  k <- rep_len(k, length(lo))[narrow]
+  x <- k * (lo[narrow] / mu[narrow])
+  # Bound the change in log density using its slope at lo and a curvature bound.
+  change <- d * (abs(k - 1 - x) + abs(k - 1) * d / 2)
+  narrow[narrow] <- is.finite(change) & change < 1
+  narrow
 }
 
 # Narrow intervals suffer cancellation even with log-CDF subtraction, notably
@@ -205,9 +224,23 @@
   out
 }
 
-# Saturated means for finite intervals are logarithmic means of their bounds:
-# equality of the two boundary densities gives mu = (u-l)/log(u/l).
-# For one-sided intervals the supremum probability is one.
+# Saturated means for finite intervals are logarithmic means of their bounds.
+# One-sided intervals attain their supremum at the corresponding limit.
+.cg_saturated_mean <- function(r) {
+  target <- r$y
+  ii <- !r$exact & r$lo > 0 & is.finite(r$hi)
+  lo <- r$lo[ii]; hi <- r$hi[ii]
+  width <- hi - lo
+  ratio <- width / lo
+  log_ratio <- log1p(ratio)
+  wide <- !is.finite(ratio)
+  log_ratio[wide] <- log(hi[wide]) - log(lo[wide])
+  target[ii] <- width / log_ratio
+  target[r$lo == 0] <- 0
+  target[is.infinite(r$hi)] <- Inf
+  target
+}
+
 .cg_saturated <- function(y, theta, deriv = TRUE) {
   r <- .cg_response(y)
   out <- matrix(0, length(r$y), 3L)
@@ -215,8 +248,8 @@
   if (length(ii)) out[ii, ] <- .cg_loglik(r$y[ii], r$y[ii], theta, deriv)
   ii <- which(!r$exact & r$lo > 0 & is.finite(r$hi))
   if (length(ii)) {
-    mu <- (r$hi[ii] - r$lo[ii]) / log1p((r$hi[ii] - r$lo[ii]) / r$lo[ii])
-    out[ii, ] <- .cg_probability(r$lo[ii], r$hi[ii], mu, exp(-theta), deriv)
+    mu <- .cg_saturated_mean(r)
+    out[ii, ] <- .cg_probability(r$lo[ii], r$hi[ii], mu[ii], exp(-theta), deriv)
   }
   out
 }
@@ -302,7 +335,24 @@
     dd <- .cg_farinterval(r$lo[i], r$hi[i], mu[i], k)
     for (j in seq_len(order)) ans[[j]][i, ] <- dd[[j]]
   }
-  ii <- which(!r$exact & !far)
+  # At large shapes, derivative ratios can cancel for narrow intervals and
+  # for deep tails well before the upper-tail asymptotic expansion applies.
+  stable <- rep(FALSE, n)
+  if (level > 0 && k >= 100) {
+    distance <- 8 / sqrt(k)
+    stable <- !r$exact & !far &
+      (narrow | r$lo / mu > 1 + distance | r$hi / mu < 1 - distance)
+    ii <- which(stable)
+    if (length(ii)) {
+      jet <- .cgammals_eval(cbind(r$y[ii], r$censor[ii]), mu[ii], theta, order,
+                            predictor = FALSE)
+      for (j in seq_len(order)) for (b in 0:min(2L, order - j)) {
+        col <- which(jet$powers[, 1] == j & jet$powers[, 2] == b)
+        ans[[j]][ii, b + 1L] <- jet$ell[, col] * factorial(j) * factorial(b)
+      }
+    }
+  }
+  ii <- which(!r$exact & !far & !stable)
   if (length(ii)) {
     logp <- .cg_probability(r$lo[ii], r$hi[ii], mu[ii], k, level > 0)
     ratios <- lapply(seq_len(order), function(j) matrix(0, length(ii), 3L))
@@ -369,6 +419,8 @@
 #' The gamma shape is `1 / theta` and scale is `mu * theta`. Dispersion is
 #' estimated as a family parameter on the log scale. The additional mgcv scale
 #' parameter is fixed at one; `family$getTheta(TRUE)` returns dispersion.
+#' When dispersion is very small and censoring bounds are close to the mean,
+#' incomplete-gamma derivative calculations may fail to converge.
 #'
 #' An ordinary vector response specifies exact observations. For censoring use
 #' a two-column matrix, following [mgcv::cnorm]: equal entries denote an exact
@@ -379,6 +431,10 @@
 #'
 #' Prior weights multiply log-likelihood contributions (replication weights);
 #' they do not change individual gamma dispersions. Zero weights are allowed.
+#' Deviance residuals have negative signs for left censoring and positive signs
+#' for right censoring. Finite intervals are signed relative to the mean that
+#' maximizes their probability. Response and Pearson residuals are missing for
+#' censored rows because their exact responses are unknown.
 #'
 #' Response predictions are ordinary plug-in estimates of the conditional
 #' arithmetic mean, `exp(eta)`, with delta-method standard errors. They do not
@@ -407,10 +463,11 @@
 #'   or [mgcv::bam].
 #' @seealso [mgcv::cnorm], [mgcv::cpois], [stats::Gamma]
 #' @section Fitting routes and NCV limitations:
-#' REML and ML are supported in `gam()`; REML, ML and fREML in ordinary
-#' `bam()`; and fREML and NCV in discrete `bam()`. Discrete NCV requires
-#' mgcv >= 1.9-4 and optimizes a working-model criterion. Use `scale = 1`
-#' in `bam()` for absolute log-likelihood comparisons: mgcv 1.9-4 can
+#' With mgcv 1.9-5, `gam()` supports REML, ML, NCV and QNCV.
+#' Ordinary `bam()` routes include REML, ML and fREML.
+#' Discrete `bam()` offers fREML and NCV. Discrete NCV requires mgcv >= 1.9-4
+#' and optimizes a working-model criterion. Use `scale = 1` in `bam()` for
+#' absolute log-likelihood comparisons: mgcv 1.9-4 can
 #' otherwise mislabel the fixed external likelihood scale.
 #'
 #' With mgcv 1.9-4, `gam()` NCV and QNCV requests (also via `nei`
@@ -463,20 +520,25 @@ cgamma <- function(theta = NULL, link = "log", observe = NULL) {
                   lower.tail = lower.tail, log.p = logp)
   }
   dev.resids <- function(y, mu, wt, theta = NULL) {
-    if (is.null(theta)) theta <- getTheta()
+    if (!length(theta)) theta <- getTheta()
+    wt <- rep_len(wt, NROW(y))
+    zero <- wt == 0
+    y <- .cg_weighted_response(y, zero)
+    mu <- rep_len(mu, length(wt))
+    mu[zero] <- 1
     d <- 2 * wt * (.cg_saturated(y, theta, FALSE)[, 1] -
                     .cg_loglik(y, mu, theta, FALSE)[, 1])
-    d[wt == 0] <- 0
     pmax(d, 0)
   }
   Dd <- function(y, mu, theta, wt, level = 0) {
-    wt <- rep_len(wt, length(mu))
+    if (!length(theta)) theta <- getTheta()
+    wt <- rep_len(wt, NROW(y))
+    zero <- wt == 0
+    y <- .cg_weighted_response(y, zero)
+    mu <- rep_len(mu, length(wt))
+    mu[zero] <- 1
     d <- .cg_mean_derivs(y, mu, theta, level)
-    d <- lapply(d, function(z) {
-      z <- -2 * wt * z
-      z[wt == 0, ] <- 0
-      z
-    })
+    d <- lapply(d, function(z) -2 * wt * z)
     curvature <- d[[2]][, 1] + d[[1]][, 1] / mu
     # Censored rows use positive observed curvature on the log-link scale.
     # Exact rows use Gamma's expected information, also used for mgcv's EDF.
@@ -487,7 +549,6 @@ cgamma <- function(theta = NULL, link = "log", observe = NULL) {
     out$EDmu2[exact] <- 2 * wt[exact] * exp(-theta) / mu[exact]^2
     if (level > 0) {
       dt <- 2 * wt * (.cg_saturated(y, theta) - .cg_loglik(y, mu, theta))
-      dt[wt == 0, ] <- 0
       out$Dth <- dt[, 2]
       out$Dmuth <- d[[1]][, 2]
       out$Dmu3 <- d[[3]][, 1]
@@ -505,16 +566,22 @@ cgamma <- function(theta = NULL, link = "log", observe = NULL) {
     out
   }
   ls <- function(y, w, theta, scale) {
-    z <- w * .cg_saturated(y, theta)
-    z[w == 0, ] <- 0
+    if (!length(theta)) theta <- getTheta()
+    if (length(scale) != 1L || !is.finite(scale) || scale != 1)
+      stop("cgamma likelihood scale is fixed at one")
+    w <- rep_len(w, NROW(y))
+    z <- w * .cg_saturated(.cg_weighted_response(y, w == 0), theta)
     list(ls = sum(z[, 1]), lsth1 = sum(z[, 2]),
          LSTH1 = z[, 2, drop = FALSE], lsth2 = sum(z[, 3]))
   }
   aic <- function(y, mu, theta = NULL, wt, dev) {
-    if (is.null(theta)) theta <- getTheta()
-    z <- wt * .cg_loglik(y, mu, theta, FALSE)[, 1]
-    z[wt == 0] <- 0
-    -2 * sum(z)
+    if (!length(theta)) theta <- getTheta()
+    wt <- rep_len(wt, NROW(y))
+    zero <- wt == 0
+    y <- .cg_weighted_response(y, zero)
+    mu <- rep_len(mu, length(wt))
+    mu[zero] <- 1
+    -2 * sum(wt * .cg_loglik(y, mu, theta, FALSE)[, 1])
   }
   initialize <- expression({
     rr <- family$response(y)
@@ -527,9 +594,10 @@ cgamma <- function(theta = NULL, link = "log", observe = NULL) {
     left <- rr$censor == -Inf
     mustart[left] <- y[left] / 2
     interval <- !rr$exact & is.finite(rr$hi)
-    mustart[interval] <- (rr$lo[interval] + rr$hi[interval]) / 2
-    positive <- mustart[mustart > 0]
+    mustart[interval] <- rr$lo[interval] / 2 + rr$hi[interval] / 2
+    positive <- mustart[mustart > 0 & weights > 0]
     fallback <- if (length(positive)) stats::median(positive) else 1
+    mustart[weights == 0] <- fallback
     mustart <- pmax(mustart, fallback * 0.01)
   })
   subsety <- function(y, ind) {
@@ -541,11 +609,29 @@ cgamma <- function(theta = NULL, link = "log", observe = NULL) {
   }
   postproc <- function(family, y, prior.weights, fitted, linear.predictors,
                        offset, intercept) {
-    find_null_deviance <- utils::getFromNamespace("find.null.dev", "mgcv")
-    list(null.deviance = find_null_deviance(family, y, eta = linear.predictors,
-                                           offset = offset, weights = prior.weights),
+    null <- if (intercept) {
+      find_null_deviance <- utils::getFromNamespace("find.null.dev", "mgcv")
+      find_null_deviance(family, y, linear.predictors, offset, prior.weights)
+    } else sum(family$dev.resids(y, family$linkinv(offset), prior.weights))
+    list(null.deviance = null,
+         deviance = sum(family$dev.resids(y, fitted, prior.weights)),
          family = paste0("Censored Gamma(dispersion = ",
                          signif(family$getTheta(TRUE), 4), ")"))
+  }
+  residuals <- function(object, type = "deviance", ...) {
+    type <- match.arg(type, c("deviance", "pearson", "scaled.pearson", "working", "response"))
+    if (type == "working") return(object$residuals)
+    r <- .cg_response(object$y)
+    mu <- object$fitted.values
+    w <- object$prior.weights
+    if (type == "deviance") {
+      sgn <- sign(.cg_saturated_mean(r) - mu)
+      return(sgn * sqrt(object$family$dev.resids(object$y, mu, w)))
+    }
+    ans <- r$y - mu
+    if (type != "response") ans <- ans * sqrt(w / object$family$variance(mu))
+    ans[!r$exact] <- NA_real_
+    ans
   }
   family <- structure(list(family = "Censored Gamma", link = "log",
                  linkfun = linkobj$linkfun, linkinv = linkobj$linkinv,
@@ -553,8 +639,9 @@ cgamma <- function(theta = NULL, link = "log", observe = NULL) {
                  validmu = function(mu) all(is.finite(mu) & mu > 0),
                  variance = function(mu) mu^2 * getTheta(TRUE),
                  dev.resids = dev.resids, Dd = Dd, ls = ls, aic = aic,
-                 initialize = initialize, response = .cg_response,
-                 subsety = subsety, postproc = postproc,
+                 initialize = initialize,
+                 response = .cg_response, subsety = subsety, postproc = postproc,
+                 residuals = residuals,
                  getTheta = getTheta, putTheta = putTheta,
                  rd = rd, qf = qf, cdf = cdf,
                  n.theta = as.integer(estimate), ini.theta = initial,

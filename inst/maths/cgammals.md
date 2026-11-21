@@ -47,9 +47,9 @@ high-order derivatives. Bounds zero and infinity are handled
 as constant zero/one probabilities rather than differentiating infinite jets.
 
 The likelihood packs derivatives in mgcv's symmetric tensor order and uses
-`gamlss.gH` for coefficient contractions. NCV passes row indices through mgcv's
-subsetting machinery and restores censoring and offsets in its likelihood
-callback. This also preserves reordered neighbourhoods and NCV gamma adjustments.
+`gamlss.gH` for coefficient contractions. NCV and QNCV use mgcv's compiled
+deletion updates and align censoring bounds, offsets, and score derivatives
+with the requested prediction rows.
 
 ## Diagnostics and initialization
 

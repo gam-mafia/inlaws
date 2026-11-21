@@ -1,4 +1,16 @@
-library(inlaws)
+library("inlaws")
+
+# With a very large component logit, the zero-count jet tends to the NB jet.
+logjet <- getFromNamespace(".zinb_logjet", "inlaws")
+nbjet <- getFromNamespace(".zinb_nbjet", "inlaws")
+spec <- getFromNamespace(".zinb_jet_spec", "inlaws")(4L)
+eta_large <- cbind(0, c(1e20, -1e20), log(2))
+limit <- logjet(c(0, 0), eta_large, FALSE, 4L)
+positive <- nbjet(0, 0, log(2), spec)
+stopifnot(isTRUE(all.equal(limit$l0, c(dnbinom(0, mu = 1, size = 2, log = TRUE), 0))),
+  isTRUE(all.equal(limit$l1[1L, 1L], -2 / 3)),
+  all(is.finite(unlist(limit))),
+  isTRUE(all.equal(limit$l0[1L], positive[1L, 1L])))
 jet <- getFromNamespace(".zinb_logjet", "inlaws")
 spec <- getFromNamespace(".zinb_jet_spec", "inlaws")
 near <- function(x, y, tol = 2e-5) {

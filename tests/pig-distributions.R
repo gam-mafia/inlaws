@@ -1,4 +1,4 @@
-library(inlaws)
+library("inlaws")
 near <- function(x, y, tol = 1e-7) {
   stopifnot(length(x) == length(y), all(is.finite(x)), all(is.finite(y)),
             max(abs(x-y)) <= tol*max(1,abs(x),abs(y)))

@@ -42,23 +42,23 @@
 
 - Add `log_logistic()` and `log_logisticls()` for arithmetic mean and
   log-response logistic scale, using log/logit links. Includes distribution
-  callbacks, analytic fourth-order derivatives, and tested REML/NCV routes;
-  the single-predictor family also supports ML and discrete `bam()`.
+  callbacks, analytic fourth-order derivatives, and REML, NCV and QNCV in `gam()`.
+  The single-predictor family also supports ML and discrete `bam()`.
 
 * Added `cmpls()` with separate log-mean and log-dispersion predictors for
-  Conway-Maxwell-Poisson counts, REML and NCV support in `gam()`, and
+  Conway-Maxwell-Poisson counts, REML, NCV, and QNCV support in `gam()`, and
   simulation, CDF, and quantile callbacks.
 
 * Added `pigls()` for Poisson inverse Gaussian counts with separate log-mean
-  and log-dispersion predictors, REML and NCV fitting in `gam()`, and
+  and log-dispersion predictors, REML, NCV, and QNCV fitting in `gam()`, and
   simulation, CDF, and quantile callbacks.
 
 * Added `pig()` for Poisson inverse Gaussian count models with fixed or
-  estimated global dispersion, REML/ML/NCV support, ordinary and discrete
+  estimated global dispersion, REML/ML/NCV/QNCV support, ordinary and discrete
   `bam()` fitting, and simulation, CDF, and quantile callbacks.
 
 * Added `cgammals()` for censored gamma models with separate log-mean and
-  log-dispersion predictors, REML and NCV fitting, and distribution callbacks.
+  log-dispersion predictors, REML, NCV, and QNCV fitting, and distribution callbacks.
 
 * Migrated 14 additional mgcv family constructors, their distribution callbacks,
   mathematical notes, and regression tests from mgcvUtils development branches.
@@ -69,7 +69,13 @@
   Native response predictions for `zinb()` and `zanb()` include the complete
   response mean, variance, and zero probability after the original three
   component parameters, with full-covariance delta-method standard errors.
-* Included the family-specific `predict_ordbeta()` helper.
+  NCV and QNCV are available for `dirichlet()`, `gpdlss()`, `nbls()`,
+  and `ordbeta()`, and QNCV is available for `betabinomial()` and
+  `clognormalls()`. `ordbeta()` supports ordinary and discrete `bam()`.
+  The `predict_ordbeta()` helper exposes the response components.
+
+* Accept `scaled.pearson` residuals for `nbls()`, `zinb()`, and `zanb()`.
+  The `cumulative_link()` CDF accepts the `logp` argument used by other families.
 
 * All family constructors now supply native `gratia_diagnostics()` factories
   without requiring gratia. They bind fitted parameters to response moments,
@@ -122,12 +128,15 @@
 * Replaced the statmod dependency with internally generated and cached
   Gauss-Legendre quadrature rules for the censored gamma and log-normal families.
 
+* Interpret `clognormal(theta = 0)` as estimation from the default start,
+  matching the other scalar-dispersion constructors.
+
 ## Bug fixes
 
-* Isolate mutable state for `cgamma()`, `clognormal()`, `cmp()` and
-  `gpoisson()` before BAM fitting,
-  preserving constructor objects and earlier fits. Report deviance and
-  likelihood statistics using fitted dispersion, including discrete BAM.
+* Isolate estimated nuisance state across direct fits, including for the
+  censored, ordinal, and count families. Report likelihood and deviance
+  at the final parameters in discrete BAM. Reject nonunit likelihood scales
+  in `gam()` for fixed-scale extended families.
 
 * Stabilize generalized Poisson BAM working information and preserve the
   NCV settings when initializing its family.
@@ -144,3 +153,22 @@
   omission remain available. Document the complete-case/rebuild workaround
   and the interception limits for extended families, BAM and incomplete
   neighbourhood lists, whose upstream validation can precede family hooks.
+
+* Accumulate shared predictor contributions to the Dirichlet and GPD REML
+  Hessian and retain singleton predictor blocks in BFGS. Compute grouped
+  NCV and QNCV gradients using the actual prediction rows and offsets.
+
+* Preserve category probabilities in one-row cumulative-link predictions
+  and stabilize derivatives for near-certain cloglog and loglog categories.
+  Keep GPD's fitted scales and prediction standard errors on the exact log
+  link. Stabilize ordinary ordered-beta BAM working steps and support
+  response predictions from its discrete fits.
+
+* Handle censoring in gamma residuals and omit zero-weight rows from
+  censored gamma derivative calculations. Honor the formula intercept in
+  the CMP and scalar censored families' null deviance. Improve small-shape
+  Dirichlet and high-shape censored gamma derivatives.
+
+* Stabilize beta-binomial diagnostic probabilities at high precision.
+  Preserve missing rows in zero-modified negative binomial quantiles and
+  draws and stabilize the zero-inflated likelihood at large logits.

@@ -190,17 +190,10 @@ hyper_poissonls <- function(link = list("log", "log"), control = list()) {
     })
     l3 <- if (order >= 3) packed[[3]] else 0
     l4 <- if (order >= 4) packed[[4]] else 0
-    shared <- deriv == 4L && anyDuplicated(unlist(jj)) > 0L
-    contracted <- deriv == 2L && any(lengths(jj) == 1L)
-    ghderiv <- if (shared || contracted) 2L else deriv-1L
     if (!supplied && !is.null(jj)) {
-      ret <- mgcv::gamlss.gH(X,jj,packed[[1]],packed[[2]],family$tri$i2,
+      ret <- .inlaws_gamlss_gh(X,jj,packed[[1]],packed[[2]],family$tri$i2,
         l3=l3,i3=family$tri$i3,l4=l4,i4=family$tri$i4,d1b=d1b,d2b=d2b,
-        deriv=ghderiv,fh=fh,D=D,sandwich=sandwich)
-      # Avoid mgcv's overlapping-column fourth-order trace overwrite.
-      if (shared) ret$trHid2H <- .nbls_shared_trace(X,jj,
-        list(l3=l3,l4=l4),family$tri,d1b,d2b,fh,D)
-      if (contracted) ret$d1H <- vapply(ret$d1H,function(x) sum(x*fh),numeric(1))
+        deriv=deriv-1L,fh=fh,D=D,sandwich=sandwich)
     }
     if (ncv) {
       ret$l1 <- packed[[1]]; ret$l2 <- packed[[2]]; ret$l3 <- l3

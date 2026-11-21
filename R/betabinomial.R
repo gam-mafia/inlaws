@@ -29,11 +29,11 @@
 #'   Response standard errors use the delta method.
 #'
 #'   REML supports outer Newton and BFGS optimization with analytic derivatives
-#'   through fourth order. NCV supports row-level neighbourhoods:
+#'   through fourth order. NCV and QNCV support row-level neighbourhoods:
 #'   each row is an entire binomial group. Correlation between rows requires
 #'   appropriate neighbourhoods. The one-step NCV approximation can be poor
 #'   when deleting a neighbourhood removes much of the precision information.
-#'   ML, QNCV, `bam()`, and `gamm()` are not supported. Note that mgcv can silently
+#'   ML, `bam()`, and `gamm()` are not supported. Note that mgcv can silently
 #'   change a request for ML into REML for a general family.
 #'
 #'   Bernoulli rows provide no precision information; at least one informative
@@ -102,7 +102,6 @@ betabinomial <- function(link = list("logit", "log")) {
 }
 
 .bb_preinitialize <- function(G) {
-  if (isTRUE(G$family$qapprox)) stop("betabinomial supports NCV but not QNCV")
   y <- G$y; wt <- G$w
   nr <- NROW(y)
   if (is.null(wt)) wt <- rep.int(1, nr)
@@ -243,7 +242,7 @@ betabinomial <- function(link = list("logit", "log")) {
                    D = NULL, eta = NULL, ncv = FALSE, sandwich = FALSE) {
   if (is.list(X)) stop("betabinomial does not support discrete model matrices")
   jj <- attr(X, "lpi")
-  if (length(jj) != 2L) stop("betabinomial requires two linear predictors")
+  if (is.null(eta) && length(jj) != 2L) stop("betabinomial requires two linear predictors")
   nr <- length(y); m <- family$trials
   if (length(m) != nr) stop("betabinomial trial totals are not aligned with the response")
   if (is.null(wt)) wt <- rep.int(1, nr)
@@ -269,12 +268,10 @@ betabinomial <- function(link = list("logit", "log")) {
   ret <- list()
   if (deriv > 0L) {
     tri <- family$tri
-    shared4 <- deriv == 4L && anyDuplicated(unlist(jj)) > 0L
-    ret <- mgcv::gamlss.gH(X, jj, de$l1, de$l2, tri$i2,
+    if (!is.null(jj)) ret <- .inlaws_gamlss_gh(X, jj, de$l1, de$l2, tri$i2,
       l3 = de$l3, i3 = tri$i3, l4 = de$l4, i4 = tri$i4,
-      d1b = d1b, d2b = d2b, deriv = if (shared4) 2L else deriv - 1L, fh = fh, D = D,
+      d1b = d1b, d2b = d2b, deriv = deriv - 1L, fh = fh, D = D,
       sandwich = sandwich)
-    if (shared4) ret$trHid2H <- .bb_shared_trace(X, jj, de, tri, d1b, d2b, fh, D)
     if (ncv) {
       ret$l1 <- de$l1; ret$l2 <- de$l2; ret$l3 <- de$l3
     }
@@ -283,60 +280,16 @@ betabinomial <- function(link = list("logit", "log")) {
   ret
 }
 
-# gamlss.gH's fourth-order trace uses assignment into expanded design blocks.
-# Those blocks overlap for shared coefficients, so explicitly sum all predictor
-# pairs here. Other contractions still use mgcv's standard helper.
-.bb_shared_trace <- function(X, jj, de, tri, d1b, d2b, fh, D) {
-  if (is.list(fh)) {
-    inv <- ifelse(fh$values > 0, 1 / fh$values, 0)
-    Hi <- fh$vectors %*% (inv * t(fh$vectors))
-  } else {
-    ipiv <- order(attr(fh, "pivot"))
-    Hi <- chol2inv(fh)[ipiv, ipiv, drop = FALSE]
-  }
-  Hi <- D * t(D * Hi)
-  d1eta <- lapply(jj, function(j) X[, j, drop = FALSE] %*% d1b[j, , drop = FALSE])
-  d2eta <- lapply(jj, function(j) X[, j, drop = FALSE] %*% d2b[j, , drop = FALSE])
-  ans <- numeric(ncol(d2b))
-  for (i in 1:2) for (j in i:2) {
-    v <- rowSums((X[, jj[[i]], drop = FALSE] %*% Hi[jj[[i]], jj[[j]], drop = FALSE]) *
-                   X[, jj[[j]], drop = FALSE])
-    kk <- 0L
-    for (k in seq_len(ncol(d1b))) for (l in k:ncol(d1b)) {
-      kk <- kk + 1L
-      value <- numeric(nrow(X))
-      for (q in 1:2) {
-        value <- value + de$l3[, tri$i3[i, j, q]] * d2eta[[q]][, kk]
-        for (s in 1:2) value <- value + de$l4[, tri$i4[i, j, q, s]] *
-          d1eta[[q]][, k] * d1eta[[s]][, l]
-      }
-      ans[kk] <- ans[kk] + (if (i == j) 1 else 2) * sum(v * value)
-    }
-  }
-  ans
-}
-
 .bb_ncv <- function(X, y, wt, nei, beta, family, llf, H = NULL, Hi = NULL,
                     R = NULL, offset = NULL, dH = NULL, db = NULL,
                     deriv = FALSE, nt = 1) {
-  response <- y; original <- family; lpi <- attr(X, "lpi")
-  family$ll <- function(y, X, coef, wt, family, offset = NULL, deriv = 0,
-                        ..., eta = NULL) {
-    attr(X, "lpi") <- lpi
-    subfamily <- original
-    subfamily$trials <- original$trials[y]
-    # The helper's full-data score (deriv=0, used when gamma != 1) supplies
-    # X beta without offsets. Reconstruct that predictor through the regular
-    # likelihood path. Its held-out eta already includes offsets.
-    if (deriv == 0L) eta <- NULL
-    original$ll(response[y], X, coef, wt, subfamily, offset = offset,
-                deriv = deriv, ..., eta = eta)
+  subset_trials <- function(family, rows) {
+    family$trials <- family$trials[rows]
+    family
   }
-  # gamlss.ncv indexes its response as a vector, including repeated nei$d.
-  # Row identifiers let the callback subset successes AND totals together.
-  getFromNamespace("gamlss.ncv", "mgcv")(X, seq_along(y), wt, nei, beta,
-    family, llf, H = H, Hi = Hi, R = R, offset = offset, dH = dH,
-    db = db, deriv = deriv, nt = nt)
+  .inlaws_gamlss_ncv(X, y, wt, nei, beta, family, llf, H = H, Hi = Hi,
+    R = R, offset = offset, dH = dH, db = db, deriv = deriv, nt = nt,
+    subset_family = subset_trials)
 }
 
 .bb_initialize <- function(y, x, E, wt, offset, start, family) {

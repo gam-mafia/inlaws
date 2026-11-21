@@ -1,4 +1,13 @@
 library("inlaws")
+
+for (new_family in list(zinb, zanb)) {
+  fam <- new_family()
+  pars <- cbind(c(1, NA, 2), c(.5, .5, NA), c(2, 2, 2))
+  probabilities <- fam$qf(.8, pars)
+  draws <- fam$rd(pars)
+  stopifnot(is.finite(probabilities[1L]), is.finite(draws[1L]),
+    all(is.na(probabilities[-1L])), all(is.na(draws[-1L])))
+}
 near <- function(x, y, tol = 1e-6) stopifnot(length(x) == length(y), all(is.finite(x)), all(is.finite(y)), max(abs(x - y) / pmax(1, abs(x), abs(y))) < tol)
 error <- function(expr, pattern) {
   e <- tryCatch(expr, error = identity)
@@ -60,6 +69,7 @@ for (h in c(FALSE, TRUE)) {
   mo <- moments(f$fitted.values, h)
   near(residuals(f, "response"), d$y - mo$mean)
   near(residuals(f, "pearson"), (d$y - mo$mean) / sqrt(mo$variance))
+  near(residuals(f, "scaled.pearson"), residuals(f, "pearson"))
   stopifnot(identical(colnames(f$fitted.values), c("mu", "p", "theta")))
   pr <- predict(f, newdata = d[1:7, ], type = "response", se.fit = TRUE)
   lp <- predict(f, newdata = d[1:7, ], type = "link", se.fit = TRUE)

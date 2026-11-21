@@ -39,11 +39,11 @@ Multiply the first response column by trial totals for expected counts.
 Response standard errors use the delta method.
 
 REML supports outer Newton and BFGS optimization with analytic derivatives
-through fourth order. NCV supports row-level neighbourhoods:
+through fourth order. NCV and QNCV support row-level neighbourhoods:
 each row is an entire binomial group. Correlation between rows requires
 appropriate neighbourhoods. The one-step NCV approximation can be poor
 when deleting a neighbourhood removes much of the precision information.
-ML, QNCV, \code{bam()}, and \code{gamm()} are not supported. Note that mgcv can silently
+ML, \code{bam()}, and \code{gamm()} are not supported. Note that mgcv can silently
 change a request for ML into REML for a general family.
 
 Bernoulli rows provide no precision information; at least one informative

@@ -58,6 +58,7 @@ A positive location effect shifts probability towards larger categories.
 Only the logit choice is a proportional-odds model.
 
 The family includes \code{cdf(q, mu, wt = 1, scale = 1, lower.tail = TRUE, log.p = FALSE)}, \code{qf(p, mu, wt = 1, scale = 1, lower.tail = TRUE, log.p = FALSE)}, and \code{rd(mu, wt = 1, scale = 1)}.
+The CDF also accepts \code{logp} for compatibility with other families.
 Here \code{mu} is the latent location, not a category probability or mean.
 Scalars recycle against vectors; other lengths must match. \code{cdf} gives
 \eqn{P(Y \le q)} (using the floor of noninteger \code{q}), \code{qf} gives the

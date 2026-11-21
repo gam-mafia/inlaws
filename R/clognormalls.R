@@ -30,8 +30,8 @@
 #'   not change the conditional distribution. Missing rows are handled by
 #'   `gam()`'s `na.action`.
 #'
-#'   Smoothing parameter selection supports `method = "REML"` and
-#'   `method = "NCV"`, including neighbourhoods supplied through `nei`.
+#'   Smoothing parameter selection supports REML, NCV, and QNCV,
+#'   including neighbourhoods supplied through `nei`.
 #'   `bam()`, `gamm()`, and ML smoothing selection are not supported. Separate
 #'   coefficients are required for the two predictors; shared coefficients
 #'   specified with an additional numeric-left-hand-side formula are not
@@ -91,7 +91,7 @@ clognormalls <- function(link = list("log", "log"), observe = NULL) {
   })
   family <- structure(list(family = "clognormalls", link = unlist(link), nlp = 2L,
     linfo = linfo, tri = mgcv::trind.generator(2), ll = .clnormalls_ll,
-    ncv = .clnormalls_ncv, initialize = initialize, init = .clnormalls_init,
+    ncv = .inlaws_gamlss_ncv, initialize = initialize, init = .clnormalls_init,
     prepare.response = .clnormal_response,
     # General-family fitters count length(y) before initialize is evaluated.
     preinitialize = function(G) list(y = .clnormal_response(G$y), offxset = G$offset),
@@ -126,7 +126,7 @@ clognormalls <- function(link = list("log", "log"), observe = NULL) {
         eta[, k] <- eta[, k] + offset[[k]]
     }
   }
-  # Direct eta already includes offsets in gamlss.ncv; do not add them twice.
+  # Held-out predictors already include offsets.
   wt <- rep_len(if (is.null(wt)) 1 else wt, nrow(eta))
   eta[wt == 0, ] <- 0
   valid <- is.finite(eta[, 1]) & is.finite(eta[, 2]) &
@@ -152,7 +152,7 @@ clognormalls <- function(link = list("log", "log"), observe = NULL) {
     l4 <- if (order >= 4) packed[[4]] else 0
     # NCV supplies eta for row subsets whose X may lack lpi. It only needs
     # observation derivatives, not coefficient-space contractions there.
-    if (!is.null(jj)) ret <- mgcv::gamlss.gH(X, jj, packed[[1]], packed[[2]], family$tri$i2,
+    if (!is.null(jj)) ret <- .inlaws_gamlss_gh(X, jj, packed[[1]], packed[[2]], family$tri$i2,
       l3 = l3, i3 = family$tri$i3, l4 = l4, i4 = family$tri$i4,
       d1b = d1b, d2b = d2b, deriv = deriv - 1L, fh = fh, D = D,
       sandwich = sandwich)
@@ -162,41 +162,6 @@ clognormalls <- function(link = list("log", "log"), observe = NULL) {
     }
   }
   ret$l0 <- ell[, 1]; ret$l <- sum(ret$l0)
-  ret
-}
-
-.clnormalls_ncv <- function(X, y, wt, nei, beta, family, llf, H = NULL,
-                            Hi = NULL, R = NULL, offset = NULL, dH = NULL,
-                            db = NULL, deriv = FALSE, nt = 1) {
-  # gamlss.ncv subsets y with y[nei$d], dropping attributes (or flattening
-  # matrices). Pass row indices and decode inside its likelihood callback.
-  response <- .clnormal_response(y)
-  bounds <- attr(response, "censor")
-  likelihood <- family$ll
-  fit_offset <- lapply(1:2, function(k) {
-    if (length(offset) >= k && !is.null(offset[[k]])) rep_len(offset[[k]], length(response)) else
-      numeric(length(response))
-  })
-  family$ll <- function(y, X, coef, wt, family, offset = NULL, deriv = 0,
-                        d1b = 0, ..., eta = NULL) {
-    yy <- response[y]
-    attr(yy, "censor") <- bounds[y]
-    off <- lapply(fit_offset, function(x) x[y])
-    if (!is.null(eta)) for (k in 1:2) eta[, k] <- eta[, k] + off[[k]]
-    likelihood(yy, X, coef, wt, family, offset = off, deriv = deriv,
-               d1b = d1b, ..., eta = eta)
-  }
-  # Keep the helper's predictors offset-free and add offsets only in the
-  # callback. Its gamma adjustment evaluates the full-data eta without
-  # adding offsets, whereas its held-out eta normally includes them.
-  ret <- utils::getFromNamespace("gamlss.ncv", "mgcv")(
-    X, seq_along(response), wt, nei, beta, family, llf, H = H, Hi = Hi,
-    R = R, offset = NULL, dH = dH, db = db, deriv = deriv, nt = nt)
-  eta <- attr(ret$NCV, "eta.cv")
-  if (!is.null(eta)) {
-    for (k in 1:2) eta[, k] <- eta[, k] + fit_offset[[k]][nei$d]
-    attr(ret$NCV, "eta.cv") <- eta
-  }
   ret
 }
 

@@ -32,6 +32,8 @@ The conditional mean is \code{mu = exp(eta)} and variance is \code{theta * mu^2}
 The gamma shape is \code{1 / theta} and scale is \code{mu * theta}. Dispersion is
 estimated as a family parameter on the log scale. The additional mgcv scale
 parameter is fixed at one; \code{family$getTheta(TRUE)} returns dispersion.
+When dispersion is very small and censoring bounds are close to the mean,
+incomplete-gamma derivative calculations may fail to converge.
 
 An ordinary vector response specifies exact observations. For censoring use
 a two-column matrix, following \link[mgcv:cnorm]{mgcv::cnorm}: equal entries denote an exact
@@ -42,6 +44,10 @@ be zero. Censoring is assumed non-informative conditional on the covariates.
 
 Prior weights multiply log-likelihood contributions (replication weights);
 they do not change individual gamma dispersions. Zero weights are allowed.
+Deviance residuals have negative signs for left censoring and positive signs
+for right censoring. Finite intervals are signed relative to the mean that
+maximizes their probability. Response and Pearson residuals are missing for
+censored rows because their exact responses are unknown.
 
 Response predictions are ordinary plug-in estimates of the conditional
 arithmetic mean, \code{exp(eta)}, with delta-method standard errors. They do not
@@ -68,10 +74,11 @@ one-sided censoring. For exact observations use \code{qnorm(cdf(y, mu))}.
 }
 \section{Fitting routes and NCV limitations}{
 
-REML and ML are supported in \code{gam()}; REML, ML and fREML in ordinary
-\code{bam()}; and fREML and NCV in discrete \code{bam()}. Discrete NCV requires
-mgcv >= 1.9-4 and optimizes a working-model criterion. Use \code{scale = 1}
-in \code{bam()} for absolute log-likelihood comparisons: mgcv 1.9-4 can
+With mgcv 1.9-5, \code{gam()} supports REML, ML, NCV and QNCV.
+Ordinary \code{bam()} routes include REML, ML and fREML.
+Discrete \code{bam()} offers fREML and NCV. Discrete NCV requires mgcv >= 1.9-4
+and optimizes a working-model criterion. Use \code{scale = 1} in \code{bam()} for
+absolute log-likelihood comparisons: mgcv 1.9-4 can
 otherwise mislabel the fixed external likelihood scale.
 
 With mgcv 1.9-4, \code{gam()} NCV and QNCV requests (also via \code{nei}

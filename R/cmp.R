@@ -3,8 +3,8 @@
 #' @description
 #' `r lifecycle::badge("experimental")`
 #'
-#' An extended family for [mgcv::gam()] with a log link for the exact mean
-#' and a fixed or estimated global dispersion parameter.
+#' An extended family for [mgcv::gam()] and [mgcv::bam()] with a log link for
+#' the exact mean and a fixed or estimated global dispersion parameter.
 #'
 #' @param theta Dispersion nu: `NULL` or zero estimates nu starting at one;
 #'   a positive value fixes nu; a negative value estimates nu starting at
@@ -23,12 +23,19 @@
 #'   among observations with positive weights has no finite log-mean fit
 #'   and is rejected.
 #'
-#'   This pure-R reference implementation uses adaptive
-#'   summation and analytic Taylor arithmetic for derivatives. Extreme means
-#'   or dispersion can exhaust numerical limits, which produces an error.
-#'   Large-data performance has not been benchmarked.
+#'   `gam()` supports `method = "REML"`, `"ML"`, `"NCV"` and `"QNCV"`.
+#'   `bam()` supports its extended-family selectors, including `"fREML"` and,
+#'   with `discrete = TRUE`, `"fREML"` and `"NCV"`. Supply `scale = 1` to
+#'   `bam()` so that `logLik()` treats the likelihood scale as fixed.
+#'   Entirely unpenalized ML fits can encounter an upstream LAPACK error when
+#'   individual observations have negative log-link curvature. Use REML in
+#'   this case.
 #'
-#'   Near-deterministic data may not have a finite dispersion estimate.
+#'   This pure-R reference implementation uses adaptive summation and analytic
+#'   Taylor arithmetic for derivatives. Large-data performance has not been
+#'   validated. Extreme means or dispersion can exhaust numerical limits,
+#'   which produces an error. Near-deterministic data may not have a finite
+#'   dispersion estimate.
 #'
 #'   Prior weights multiply log likelihood contributions; they do not change
 #'   the distribution used by the `rd`, `qf`, and `cdf` callbacks. These
@@ -44,18 +51,11 @@
 #' @references Huang, A. (2017). Mean-parametrized Conway-Maxwell-Poisson
 #'   regression models for dispersed counts. Statistical Modelling, 17,
 #'   359--380. doi:10.1177/1471082X17697749.
-#' @section Fitting routes and NCV limitations:
-#' REML and ML are supported in `gam()`; REML, ML and fREML in ordinary
-#' `bam()`; and fREML and NCV in discrete `bam()`. Discrete NCV requires
-#' mgcv >= 1.9-4 and optimizes a working-model criterion. Use `scale = 1`
-#' in `bam()` for absolute log-likelihood comparisons: mgcv 1.9-4 can
-#' otherwise mislabel the fixed external likelihood scale.
-#'
-#' With mgcv 1.9-4, `gam()` NCV and QNCV requests (also via `nei`
-#' during REML) are rejected for separate upstream numerical NCV issues.
-#' These restrictions remain after complete-case filtering. Support must be
-#' reassessed on later mgcv versions. Discrete `bam()` NCV uses
-#' a separate fitting route and remains available.
+#' @section NCV limitations:
+#' The extended-family `gam()` NCV and QNCV routes are unavailable with mgcv
+#' 1.9-4 due to upstream numerical issues. This restriction also applies to
+#' NCV requested via `nei` and remains after complete-case filtering.
+#' Discrete `bam()` NCV uses a separate working-model criterion.
 #'
 #' @template ncv-neighbourhoods-extended
 #' @export
@@ -217,15 +217,19 @@ cmp <- function(theta = NULL, link = "log", control = list()) {
     # Convex in the intercept's log-lambda only for a constant mean. Use a
     # scalar mean-link optimisation to accommodate exposure offsets as well.
     obj <- function(b) sum(family$dev.resids(y, exp(b + offset), prior.weights))
-    centre <- sum((linear.predictors - offset) * prior.weights) / sum(prior.weights)
-    width <- 1
-    repeat {
-      opt <- stats::optimize(obj, c(centre - width, centre + width))
-      if (abs(opt$minimum - centre) < 0.95 * width) break
-      width <- width * 2
-      if (width > 128) stop("CMP null deviance optimisation failed", call. = FALSE)
+    null <- if (!intercept) obj(0) else {
+      centre <- stats::weighted.mean(linear.predictors - offset, prior.weights)
+      width <- 1
+      repeat {
+        opt <- stats::optimize(obj, centre + c(-width, width), tol = 1e-9)
+        if (abs(opt$minimum - centre) < 0.95 * width) break
+        width <- width * 2
+        if (width > 128) stop("CMP null deviance optimisation failed", call. = FALSE)
+      }
+      opt$objective
     }
-    list(null.deviance = opt$objective, deviance = sum(family$dev.resids(y, fitted, prior.weights)))
+    list(null.deviance = null,
+         deviance = sum(family$dev.resids(y, fitted, prior.weights)))
   }
   lk <- stats::make.link("log")
   family <- structure(list(family = "Conway-Maxwell-Poisson", link = "log",

@@ -1,4 +1,4 @@
-library(inlaws)
+library("inlaws")
 evaluate <- getFromNamespace(".cgammals_eval", "inlaws")
 response <- getFromNamespace(".cgammals_response", "inlaws")
 near <- function(x, y, tol = 1e-5) {
@@ -63,3 +63,57 @@ y <- rbind(c(1,1), c(.Machine$double.xmax, Inf))
 X <- matrix(1, 2, 2)
 l <- fam$ll(y, X, c(0,0), c(1,0), fam, deriv=4, ncv=TRUE, eta=matrix(0,2,2))
 stopifnot(l$l0[2] == 0, all(l$l1[2,] == 0), all(l$l4[2,] == 0))
+
+# Near the mean, a large shape needs more than 10,000 series terms.
+shape <- 2e6
+lp <- stats::pgamma(shape, shape, log.p = TRUE)
+expected <- -exp(log(shape) + stats::dgamma(shape, shape, log = TRUE) - lp)
+large <- evaluate(cbind(1, -Inf), 0, -log(shape), 2L)
+near(take(large, 1, 0), expected, 1e-7)
+large <- cgamma()$Dd(cbind(1, -Inf), 1, -log(shape), 1, 2)
+near(large$Dmu, -2 * expected, 1e-7)
+
+# For integer shape, the upper tail is a finite Poisson sum. Its scaled
+# terms are proportional to mu^j, so their index cumulants give the
+# derivatives of the log sum without subtracting large raw boundary ratios.
+x <- shape + 20 * sqrt(shape)
+yy <- cbind(x / shape, Inf)
+index <- 0:3000
+term <- c(1, cumprod((shape - index[-1]) / x))
+stopifnot(tail(term, 1) < 1e-18)
+prob <- term / sum(term)
+m <- sum(index * prob)
+centred <- index - m
+v <- sum(centred^2 * prob)
+expected <- c(x - (shape - 1) + m, -x + v,
+              x + sum(centred^3 * prob), -x + sum(centred^4 * prob) - 3 * v^2)
+upper <- evaluate(yy, 0, -log(shape), 4L)
+near(vapply(1:4, function(a) take(upper, a, 0), numeric(1)), expected, 1e-8)
+d <- cgamma()$Dd(yy, 1, -log(shape), 1, 2)
+partials <- unlist(d[c("Dmu", "Dmu2", "Dmu3", "Dmu4")])
+change_coordinates <- rbind(c(1, 0, 0, 0), c(1, 1, 0, 0),
+                            c(1, 3, 1, 0), c(1, 7, 6, 1))
+near(drop(change_coordinates %*% partials) / -2, expected, 1e-8)
+
+# A short interval can be nearly flat in density even when shape times its
+# relative width is large. Integrate the differentiated density independently.
+shape <- 1e7
+yy <- cbind(1, 1 + .1 / sqrt(shape))
+moments <- vapply(0:4, function(j) {
+  integrate(function(z) {
+    x <- shape + sqrt(shape) * z
+    a <- x - shape; b <- -x; c <- x
+    density_ratios <- list(1, a, b + a^2, c + 3*a*b + a^3,
+                           -x + 4*a*c + 3*b^2 + 6*a^2*b + a^4)
+    dgamma(x, shape) * density_ratios[[j + 1L]]
+  }, 0, (yy[2] - 1) * sqrt(shape), rel.tol = 1e-10)$value
+}, numeric(1))
+ratios <- moments[-1] / moments[1]
+a <- ratios[1]; b <- ratios[2]; c <- ratios[3]
+expected <- c(a, b-a^2, c-3*a*b+2*a^3,
+              ratios[4]-4*a*c-3*b^2+12*a^2*b-6*a^4)
+interval <- evaluate(yy, 0, -log(shape), 4L)
+near(vapply(1:4, function(a) take(interval, a, 0), numeric(1)), expected, 1e-8)
+d <- cgamma()$Dd(yy, 1, -log(shape), 1, 2)
+partials <- unlist(d[c("Dmu", "Dmu2", "Dmu3", "Dmu4")])
+near(drop(change_coordinates %*% partials) / -2, expected, 1e-8)
