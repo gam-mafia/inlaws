@@ -45,15 +45,18 @@ Nearly multinomial data can give weakly identified, very large concentration;
 a warning is issued if fitted concentration exceeds one million. No upper
 bound on concentration is imposed.
 
-Fitting uses REML with the extended Fellner-Schall optimizer (\code{optimizer = "efs"}), which mgcv selects automatically for this family. Analytic first
-and second likelihood derivatives are supplied. Higher-order outer Newton
-optimization and neighbourhood cross-validation are not supported. Because
-of mgcv's EFS smoothing-parameter mapping, smoothing parameters must be all
-free and unlinked, or all fixed. Partly fixed parameters and shared smoothing
-parameter IDs are rejected; shared coefficients across predictors are supported.
+Analytic likelihood derivatives through fourth order support REML with
+outer Newton (the default), outer BFGS, or extended Fellner-Schall
+(\code{optimizer = "efs"}). NCV and QNCV use outer BFGS and delete whole rows
+of counts. Shared coefficients across predictors are supported. With EFS,
+smoothing parameters must be all free and unlinked, or all fixed. Use an
+outer optimizer for partly fixed or linked smoothing parameters.
 With mgcv 1.9-3, supply fixed smoothing parameters to a second call
 \code{gam(G = G, sp = ...)}, where \code{G} was built with \code{gam(..., fit = FALSE)},
 to avoid that version's list-formula setup bug.
+To fit fully unpenalized NCV or QNCV models on mgcv 1.9-3 or 1.9-4,
+supply \code{nei = list(jackknife = FALSE)} or specify neighbourhoods with
+\code{jackknife = FALSE}. These versions cannot compute their jackknife covariance.
 \code{mgcv::bam()} currently rejects general families, including this one;
 a scalable BAM fitting engine is a separate future extension.
 
@@ -81,6 +84,28 @@ Simulate counts by drawing gamma variates with shapes \code{phi * p}, normalizin
 them to probabilities, then calling \code{rmultinom()} with the desired total.
 The example illustrates this at moderate concentration.
 }
+\section{NCV neighbourhood preprocessing}{
+
+In mgcv 1.9-4, model-frame omission can corrupt explicit \code{nei}
+neighbourhoods before fitting. This is shared mgcv preprocessing, separate
+from likelihood, deletion-update, QNCV and covariance restrictions. This
+family checks the adjusted structure in \code{gam()}'s general-family \code{presetup}
+hook and rejects inconsistent indices or cumulative group boundaries, also
+when \code{nei} requests NCV calculations during REML. The check is not tied to
+a presumed fixed mgcv version. Correctly adjusted whole-group omissions,
+complete-data neighbourhoods and default leave-one-out (\code{nei = NULL})
+constructed after omission remain available within the family's supported
+methods. Ordinary REML without \code{nei} is unaffected.
+
+Remove incomplete observations using all relevant response, predictor,
+offset and weight variables, apply subset selection, then construct \code{nei}
+using the resulting data's row indices. Deletion and prediction sets may
+differ; their ordering, repetitions and grouping are not changed by inlaws.
+If an incomplete \code{nei} list fails inside mgcv's adjustment itself, it fails
+before any family hook and cannot receive the inlaws diagnostic. See the
+family compatibility vignette for route and version qualifications.
+}
+
 \examples{
 set.seed(12)
 n <- 200
@@ -95,7 +120,7 @@ dat$counts <- t(vapply(seq_len(n), function(i) {
 }, numeric(3)))
 fit <- mgcv::gam(list(counts ~ s(x, k = 6), ~s(x, k = 6), ~z),
                  family = dirmult(K = 2), data = dat,
-                 method = "REML", optimizer = "efs")
+                 method = "REML")
 pr <- predict(fit, type = "response")
 head(pr)
 expected_counts <- totals * pr[, 1:3]

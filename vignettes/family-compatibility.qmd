@@ -30,7 +30,7 @@ The checks use free smoothing parameters and verify the criterion that actually 
 | `cmpls()` | General | Tested / — | Tested / Tested | — / — / — | — / — |
 | `cumulative_link()` | Extended | Tested / Tested | Tested / Checked | Tested / Tested / Tested | Tested / Tested |
 | `dirichlet()` | General | Tested / — | Tested / Tested | — / — / — | — / — |
-| `dirmult()` | General | Tested (EFS) / — | — / — | — / — / — | — / — |
+| `dirmult()` | General | Tested / — | Tested / Tested | — / — / — | — / — |
 | `egpdlss()` | General | Tested / — | Tested / Tested | — / — / — | — / — |
 | `gen_gammalss()` | General | Tested / — | Tested / Tested | — / — / — | — / — |
 | `gpdlss()` | General | Tested / — | Tested¹ / Tested | — / — / — | — / — |
@@ -134,7 +134,13 @@ and the criterion, including the QNCV flag.
   request falls back to REML. Requests for GCV, GACV, Pearson
   likelihood criteria, or fREML also fall back to REML for the families
   above. Check the criterion in `fit$method`.
-- **Optimizers:** `zoibetals()` and `dirmult()` use extended Fellner--Schall (`optimizer =
+- **Dirichlet-multinomial counts:** `dirmult()` supports REML with Newton, BFGS
+  and EFS, and NCV/QNCV with BFGS. Neighbourhoods delete complete count
+  vectors. The tests cover grouped deletions, offsets, case weights and
+  shared coefficients. EFS requires all smoothing parameters free and
+  unlinked, or all fixed. On mgcv 1.9-3 and 1.9-4, fully unpenalized NCV and
+  QNCV require `nei` with `jackknife = FALSE`. Tests are in `tests/dirmult*.R`.
+- **Optimizers:** `zoibetals()` uses extended Fellner--Schall (`optimizer =
   "efs"`), selected automatically; Newton/BFGS smoothing optimization is not
   implemented. `betabinomial()` has tested REML Newton and BFGS routes;
   `nbls()`, `zinb()`, and `zanb()` also have tested EFS routes. NCV for

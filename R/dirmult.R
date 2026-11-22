@@ -35,16 +35,18 @@
 #' a warning is issued if fitted concentration exceeds one million. No upper
 #' bound on concentration is imposed.
 #'
-#' Fitting uses REML with the extended Fellner-Schall optimizer (`optimizer =
-#' "efs"`), which mgcv selects automatically for this family. Analytic first
-#' and second likelihood derivatives are supplied. Higher-order outer Newton
-#' optimization and neighbourhood cross-validation are not supported. Because
-#' of mgcv's EFS smoothing-parameter mapping, smoothing parameters must be all
-#' free and unlinked, or all fixed. Partly fixed parameters and shared smoothing
-#' parameter IDs are rejected; shared coefficients across predictors are supported.
+#' Analytic likelihood derivatives through fourth order support REML with
+#' outer Newton (the default), outer BFGS, or extended Fellner-Schall
+#' (`optimizer = "efs"`). NCV and QNCV use outer BFGS and delete whole rows
+#' of counts. Shared coefficients across predictors are supported. With EFS,
+#' smoothing parameters must be all free and unlinked, or all fixed. Use an
+#' outer optimizer for partly fixed or linked smoothing parameters.
 #' With mgcv 1.9-3, supply fixed smoothing parameters to a second call
 #' `gam(G = G, sp = ...)`, where `G` was built with `gam(..., fit = FALSE)`,
 #' to avoid that version's list-formula setup bug.
+#' To fit fully unpenalized NCV or QNCV models on mgcv 1.9-3 or 1.9-4,
+#' supply `nei = list(jackknife = FALSE)` or specify neighbourhoods with
+#' `jackknife = FALSE`. These versions cannot compute their jackknife covariance.
 #' `mgcv::bam()` currently rejects general families, including this one;
 #' a scalable BAM fitting engine is a separate future extension.
 #'
@@ -71,6 +73,7 @@
 #' Simulate counts by drawing gamma variates with shapes `phi * p`, normalizing
 #' them to probabilities, then calling `rmultinom()` with the desired total.
 #' The example illustrates this at moderate concentration.
+#' @template ncv-neighbourhoods
 #' @seealso [mgcv::multinom()], [mgcv::gam()]
 #' @export
 #' @examples
@@ -87,7 +90,7 @@
 #' }, numeric(3)))
 #' fit <- mgcv::gam(list(counts ~ s(x, k = 6), ~s(x, k = 6), ~z),
 #'                  family = dirmult(K = 2), data = dat,
-#'                  method = "REML", optimizer = "efs")
+#'                  method = "REML")
 #' pr <- predict(fit, type = "response")
 #' head(pr)
 #' expected_counts <- totals * pr[, 1:3]
@@ -115,12 +118,13 @@ dirmult <- function(K=1) {
   }
   preinitialize <- function(G) {
     validate(G$y,G$w)
-    ## mgcv's EFS driver does not apply a reduced smoothing-parameter map.
-    ## Fully fixed smoothing parameters use its separate no-sps path.
-    if (length(G$sp)>0 && (!is.null(G$L) &&
-        !isTRUE(all.equal(unname(G$L),diag(length(G$sp)),check.attributes=FALSE)) ||
-        any(G$lsp0!=0)))
-      stop("dirmult EFS requires all smoothing parameters free and unlinked, or all fixed")
+    # estimate.gam() resolves the optimizer before calling this hook, also
+    # when gam() is called with an existing setup object.
+    opt <- get0("optimizer", envir = parent.frame(), inherits = FALSE)
+    if (length(opt) && opt[1L] == "efs" && length(G$sp) &&
+        ((!is.null(G$L) && !isTRUE(all.equal(unname(G$L),
+          diag(length(G$sp)), check.attributes = FALSE))) || any(G$lsp0 != 0)))
+      stop("dirmult EFS requires all smoothing parameters free and unlinked, or all fixed; use an outer optimizer")
     if (length(attr(G$X,"lpi"))!=C)
       stop("dirmult requires K probability formulas and one concentration formula")
     fam <- G$family
@@ -131,27 +135,41 @@ dirmult <- function(K=1) {
   }
   ll <- function(y,X,coef,wt,family,offset=NULL,deriv=0,d1b=0,d2b=0,
                  Hp=NULL,rank=0,fh=NULL,D=NULL,eta=NULL,ncv=FALSE,sandwich=FALSE) {
-    if (deriv>1 || ncv) stop("dirmult supports EFS fitting only")
-    jj <- attr(X,"lpi")
-    if (is.null(eta)) {
-      eta <- matrix(0,nrow(y),family$nlp)
+    supplied <- !is.null(eta)
+    jj <- attr(X, "lpi")
+    if (!supplied) {
+      eta <- matrix(0, nrow(y), family$nlp)
       for (j in seq_len(family$nlp)) {
-        eta[,j] <- X[,jj[[j]],drop=FALSE]%*%coef[jj[[j]]]
-        if (!is.null(offset) && length(offset)>=j && !is.null(offset[[j]]))
-          eta[,j] <- eta[,j]+offset[[j]]
+        eta[, j] <- X[, jj[[j]], drop = FALSE] %*% coef[jj[[j]]]
+        if (length(offset) >= j && !is.null(offset[[j]]))
+          eta[, j] <- eta[, j] + offset[[j]]
       }
     }
-    if (any(!is.finite(eta))) return(list(l=-Inf,lb=rep(0,length(coef)),
-                                         lbb=matrix(0,length(coef),length(coef))))
-    z <- .dirmult_deriv(y,eta,wt,deriv>0)
-    if (deriv) {
-      ret <- mgcv::gamlss.gH(X,jj,z$l1,z$l2,family$tri$i2,deriv=0,sandwich=sandwich)
-    } else ret <- list()
-    ret$l <- z$l; ret$l0 <- z$l0
+    if (is.null(wt)) wt <- rep(1, nrow(y))
+    active <- wt > 0
+    eta[!active, ] <- 0
+    if (any(!is.finite(eta))) return(list(l = -Inf, l0 = ifelse(active, -Inf, 0),
+      lb = numeric(length(coef)), lbb = matrix(0, length(coef), length(coef))))
+
+    order <- if (deriv == 0) 0L else if (deriv == 1) 2L else
+      if (deriv < 4) 3L else 4L
+    tri <- family$tri
+    z <- .dirmult_deriv(y, eta, wt, order = order)
+    l0 <- numeric(length(wt))
+    l0[active] <- wt[active] * z$l0[active]
+    ret <- list(l = z$l, l0 = l0)
+    if (deriv && !supplied) ret <- c(ret, .inlaws_gamlss_gh(
+      X, jj, z$l1, z$l2, tri$i2, l3 = z$l3, i3 = tri$i3,
+      l4 = z$l4, i4 = tri$i4, d1b = d1b, d2b = d2b, deriv = deriv - 1L,
+      fh = fh, D = D, sandwich = sandwich))
+    if (ncv) ret[c("l1", "l2", "l3")] <- z[c("l1", "l2", "l3")]
     ret
   }
   initialize <- expression({
     nobs <- nrow(y); n <- rep(1,nobs)
+    if (exists("penalized", inherits = FALSE) && !penalized &&
+        scoreType == "NCV" && nei$jackknife > 2 && utils::packageVersion("mgcv") < "1.9.5")
+      stop("dirmult NCV/QNCV jackknife covariance for a fully unpenalized model is unavailable with mgcv 1.9-3 and 1.9-4; supply nei with jackknife = FALSE", call. = FALSE)
     ## mgcv 1.9-3's EFS path omits the offset argument. Restore it here,
     ## before gam.fit5 constructs either the likelihood or fitted values.
     if (is.null(offset)) offset <- family$training.offset
@@ -217,8 +235,14 @@ dirmult <- function(K=1) {
   residuals <- function(object,type=c("deviance","pearson","response")) {
     type <- match.arg(type)
     eta <- object$linear.predictors; y <- object$y
-    if (type=="deviance") return(sqrt(pmax(0,-2*object$prior.weights*
-                                .dirmult_deriv(y,eta,deriv=FALSE)$l0)))
+    if (type == "deviance") {
+      wt <- object$prior.weights
+      active <- wt > 0
+      l0 <- .dirmult_deriv(y, eta, deriv = FALSE)$l0
+      res <- numeric(length(wt))
+      res[active] <- sqrt(pmax(0, -2 * wt[active] * l0[active]))
+      return(res)
+    }
     pr <- .dirmult_prob(eta); total <- rowSums(y)
     r <- y-total*pr$p
     if (type=="pearson") {
@@ -239,17 +263,13 @@ dirmult <- function(K=1) {
     if (any(eta[,ncol(eta)]>log(1e6)))
       warning("large dirmult concentration: the multinomial boundary may be weakly identified")
   })
-  i2 <- matrix(0L,C,C); h <- 0L
-  for (j in seq_len(C)) for (k in j:C) {
-    h <- h+1L; i2[j,k] <- i2[k,j] <- h
-  }
   family <- structure(list(family="dirmult",nlp=C,link=rep("identity",C),linfo=linfo,
-      ll=ll,initialize=initialize,preinitialize=preinitialize,validate=validate,
+      ll=ll,ncv=.inlaws_gamlss_ncv,initialize=initialize,preinitialize=preinitialize,validate=validate,
       postproc=postproc,predict=predict,residuals=residuals,
       initial.ll=function(y,eta,wt) .dirmult_deriv(y,eta,wt,FALSE)$l,
       null.deviance=.dirmult_null,
-      tri=list(i2=i2),available.derivs=0,
+      tri=.dirmult_tri(C),available.derivs=2L,
       d2link=1,d3link=1,d4link=1,ls=1,discrete.ok=FALSE),
       class=c("general.family","extended.family","family"))
-  .inlaws_diagnostic_family(family, "dirmult")
+  .inlaws_ncv_family(.inlaws_diagnostic_family(family, "dirmult"))
 }

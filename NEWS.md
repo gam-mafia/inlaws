@@ -73,6 +73,8 @@
   and `ordbeta()`, and QNCV is available for `betabinomial()` and
   `clognormalls()`. `ordbeta()` supports ordinary and discrete `bam()`.
   The `predict_ordbeta()` helper exposes the response components.
+  `dirmult()` has stable analytic derivatives through fourth order for REML
+  Newton and BFGS, and NCV/QNCV with BFGS.
 
 * Accept `scaled.pearson` residuals for `nbls()`, `zinb()`, and `zanb()`.
   The `cumulative_link()` CDF accepts the `logp` argument used by other families.

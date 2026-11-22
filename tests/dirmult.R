@@ -130,6 +130,11 @@ Gfix <- gam(list(y~s(x,k=5),~s(x,k=5),~1),family=dirmult(2),data=d,
             method="REML",fit=FALSE)
 bfix <- gam(G=Gfix,method="REML",sp=c(.5,2))
 near(bfix$full.sp,c(.5,2),1e-12)
+bfix_efs <- gam(G=Gfix,method="REML",sp=c(.5,2),optimizer="efs")
+near(coef(bfix_efs),coef(bfix),1e-6)
+bmix <- gam(G=Gfix,method="REML",sp=c(.5,-1))
+near(bmix$full.sp[1],.5,1e-12)
+stopifnot(length(bmix$sp)==1L,bmix$outer.info$conv=="full convergence")
 bs <- gam(list(y~1,~1,~1,1+2~s(x,k=5)-1),family=dirmult(2),data=d,method="REML")
 stopifnot(all(is.finite(predict(bs,type="response",se.fit=TRUE)$se.fit)))
 dm <- d; dm$y[4,2] <- NA; dm$x[8] <- NA
@@ -159,7 +164,7 @@ expect_error(validate(ybad,rep(1,12)),"categories")
 expect_error(validate(y,rep(-1,12)),"weights")
 expect_error(validate(y,rep(0,12)),"weights")
 expect_error(validate(diag(3),rep(1,3)),"not identifiable")
-expect_error(gam(G=Gfix,sp=c(.5,-1),method="REML"),"all smoothing parameters")
+expect_error(gam(G=Gfix,sp=c(.5,-1),method="REML",optimizer="efs"),"all smoothing parameters")
 expect_error(bam(list(y~x,~x,~z),family=dirmult(2),data=d),"general families not supported")
 
 ## A smooth concentration predictor, and a category permutation with identical
