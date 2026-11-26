@@ -2,6 +2,12 @@
 
 ## New features
 
+* Added `logistic_normal()` for positive compositions with separate
+  additive log-ratio mean and scale predictors and a full residual correlation
+  matrix. Supports REML, NCV and QNCV in `gam()`, compositional center
+  predictions, joint simulation and optional LKJ-style correlation shrinkage.
+  Intended for modest numbers of parts.
+
 * Added `bgevlss()` for blended GEV responses with separate location
   quantile, log-spread and log-shape predictors. Includes analytic
   fourth-order derivatives, REML Newton/BFGS/EFS and NCV/QNCV BFGS in

@@ -5,8 +5,8 @@
 \title{Response distributions for fitted-model diagnostics}
 \description{
 Every inlaws family supplies a \code{gratia_diagnostics(mu, wt, scale, y, eta)}
-function. It returns response moments and functions bound to the supplied
-fitted parameters. No gratia installation is needed to construct or fit a
+function. It returns available response moments and functions bound to the
+supplied fitted parameters. No gratia installation is needed to construct or fit a
 family. The native \code{rd}, \code{cdf} and \code{qf} functions keep their existing arguments.
 }
 \details{
@@ -34,6 +34,10 @@ variances. Dirichlet deviance residuals are undefined; the componentwise
 Dirichlet-multinomial interface also requires PIT, quantile, response or
 Pearson residuals. Its existing native row-level deviance remains available
 through \code{residuals()}.
+
+Logistic-normal diagnostics provide joint simulation and componentwise
+differences from the compositional center. Obtain row-level Pearson
+distances with \code{residuals(fit, type = "pearson")}.
 
 Censored families decode the observed intervals for probability diagnostics.
 Traditional simulated QQ and worm references additionally require an

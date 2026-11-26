@@ -50,6 +50,7 @@ reference:
     contents:
       - dirichlet
       - dirmult
+      - logistic_normal
   - title: Model diagnostics
     contents:
       - family_diagnostics

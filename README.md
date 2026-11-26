@@ -41,6 +41,7 @@ vignettes. Building the vignette requires the Quarto CLI and the R package
 | Cumulative-link ordinal | `cumulative_link()` |
 | Dirichlet | `dirichlet()` |
 | Dirichlet-multinomial | `dirmult()` |
+| Logistic-normal | `logistic_normal()` |
 | Generalized Poisson | `gpoisson()` |
 | Poisson inverse Gaussian | `pig()`, `pigls()` |
 | Negative binomial location and size | `nbls()` |

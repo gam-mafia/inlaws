@@ -38,6 +38,7 @@ The checks use free smoothing parameters and verify the criterion that actually 
 | `hyper_poissonls()` | General | Tested / — | Tested / Tested | — / — / — | — / — |
 | `log_logistic()` | Extended | Tested / Tested | Tested / Checked | Tested / Tested / Tested | Tested / Tested |
 | `log_logisticls()` | General | Tested / — | Tested / Tested | — / — / — | — / — |
+| `logistic_normal()` | General | Tested / — | Tested / Tested | — / — / — | — / — |
 | `nbls()` | General | Tested / — | Tested / Tested | — / — / — | — / — |
 | `ordbeta()` | Extended | Tested / Tested | Tested / Tested | Tested / Tested / Tested | Tested / Tested |
 | `pig()` | Extended | Tested / Tested | Tested / Checked | Tested / Tested / Tested | Tested / Tested |
@@ -140,6 +141,12 @@ and the criterion, including the QNCV flag.
   shared coefficients. EFS requires all smoothing parameters free and
   unlinked, or all fixed. On mgcv 1.9-3 and 1.9-4, fully unpenalized NCV and
   QNCV require `nei` with `jackknife = FALSE`. Tests are in `tests/dirmult*.R`.
+- **Logistic-normal compositions:** `logistic_normal()` estimates separate
+  additive log-ratio mean and scale predictors and an unrestricted residual
+  correlation matrix. REML, NCV and QNCV use outer BFGS. NCV deletes whole
+  compositions, with jackknife covariance for leave-one-out neighbourhoods.
+  Avoid large numbers of parts because the correlation parameters and
+  derivative storage grow rapidly. Tests are in `tests/logistic-normal.R`.
 - **Optimizers:** `zoibetals()` uses extended Fellner--Schall (`optimizer =
   "efs"`), selected automatically; Newton/BFGS smoothing optimization is not
   implemented. `betabinomial()` has tested REML Newton and BFGS routes;
